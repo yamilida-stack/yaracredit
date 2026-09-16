@@ -28,15 +28,33 @@ export default function LoansPage() {
   // Calculate preview
   const preview = useMemo(() => {
     const amount = parseFloat(form.amount) || 0;
-    const rate = parseFloat(form.interestRate) || 0;
+    const monthlyRate = parseFloat(form.interestRate) || 0;
     const term = parseInt(form.term) || 1;
-    const totalInterest = amount * (rate / 100) * (term / 12);
-    const totalAmount = amount + totalInterest;
+    
+    // Cálculo correcto según especificaciones:
+    // 1. Porcentaje de Interés Total = Interés Mensual × Plazo en meses
+    const totalInterestPercent = monthlyRate * term;
+    
+    // 2. Monto de Interés en dinero = Monto Principal × (Porcentaje Total / 100)
+    const totalInterestAmount = amount * (totalInterestPercent / 100);
+    
+    // 3. Total a Pagar = Monto Principal + Monto de Interés
+    const totalAmount = amount + totalInterestAmount;
+    
+    // 4. Cálculo de cuotas según modalidad
     let installments = term;
     if (form.type === 'semanal') installments = term * 4;
     else if (form.type === 'quincenal') installments = term * 2;
+    
     const installmentAmount = Math.ceil(totalAmount / installments);
-    return { totalInterest, totalAmount, installmentAmount, installments };
+    
+    return { 
+      totalInterestPercent, 
+      totalInterestAmount, 
+      totalAmount, 
+      installmentAmount, 
+      installments 
+    };
   }, [form.amount, form.interestRate, form.term, form.type]);
 
   const openCreate = () => {
@@ -227,14 +245,34 @@ export default function LoansPage() {
                 <DollarSign size={18} /> Resumen del Préstamo
               </h4>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-                <div><p className="text-purple-600">Monto</p><p className="font-bold text-lg">{formatCurrency(parseFloat(form.amount) || 0)}</p></div>
-                <div><p className="text-purple-600">Interés Mensual</p><p className="font-bold text-lg">{form.interestRate}%</p></div>
-                <div><p className="text-purple-600">Interés Total ({form.term} meses)</p><p className="font-bold text-lg">{formatCurrency(preview.totalInterest)}</p></div>
-                <div><p className="text-purple-600">Total a Pagar</p><p className="font-bold text-lg">{formatCurrency(preview.totalAmount)}</p></div>
+                <div>
+                  <p className="text-purple-600">Monto</p>
+                  <p className="font-bold text-lg">{formatCurrency(parseFloat(form.amount) || 0)}</p>
+                </div>
+                <div>
+                  <p className="text-purple-600">Interés Mensual</p>
+                  <p className="font-bold text-lg">{form.interestRate}%</p>
+                </div>
+                <div>
+                  <p className="text-purple-600">Interés Total ({form.term} meses)</p>
+                  <p className="font-bold text-lg">{preview.totalInterestPercent}%</p>
+                </div>
+                <div>
+                  <p className="text-purple-600">Monto de Interés</p>
+                  <p className="font-bold text-lg">{formatCurrency(preview.totalInterestAmount)}</p>
+                </div>
               </div>
               <div className="mt-3 pt-3 border-t border-purple-200">
-                <p className="text-sm text-purple-700 font-medium">{preview.installments} cuotas de <span className="text-lg font-bold text-green-700">{formatCurrency(preview.installmentAmount)}</span></p>
-                <p className="text-xs text-purple-500 mt-1">Cálculo: {form.interestRate}% mensual × {form.term} meses = {parseFloat(form.interestRate) * parseInt(form.term)}% total</p>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium text-purple-700">Total a Pagar:</span>
+                  <span className="text-2xl font-bold text-purple-900">{formatCurrency(preview.totalAmount)}</span>
+                </div>
+                <p className="text-sm text-purple-700 font-medium">
+                  {preview.installments} cuotas {form.type === 'semanal' ? 'semanales' : form.type === 'quincenal' ? 'quincenales' : 'mensuales'} de <span className="text-lg font-bold text-green-700">{formatCurrency(preview.installmentAmount)}</span>
+                </p>
+                <p className="text-xs text-purple-500 mt-1">
+                  Cálculo: {form.interestRate}% mensual × {form.term} meses = {preview.totalInterestPercent}% total
+                </p>
               </div>
             </div>
           )}

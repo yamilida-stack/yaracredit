@@ -37,18 +37,29 @@ const seedArticles: Article[] = [
 // Calculate loan installments - Interés MENSUAL
 function calculateInstallment(amount: number, interestRate: number, term: number, type: LoanType): number {
   // interestRate es el % MENSUAL
-  // Si son 3 meses al 14%, el interés total es 14% * 3 = 42%
-  const totalInterest = amount * (interestRate / 100) * term;
-  const totalAmount = amount + totalInterest;
+  // Porcentaje de Interés Total = Interés Mensual × Plazo en meses
+  const totalInterestPercent = interestRate * term;
+  
+  // Monto de Interés = Monto Principal × (Porcentaje Total / 100)
+  const totalInterestAmount = amount * (totalInterestPercent / 100);
+  
+  // Total a Pagar = Monto Principal + Monto de Interés
+  const totalAmount = amount + totalInterestAmount;
+  
+  // Cálculo de cuotas según modalidad
   let installments = term;
   if (type === 'semanal') installments = term * 4;
   else if (type === 'quincenal') installments = term * 2;
+  
   return Math.ceil(totalAmount / installments);
 }
 
 function calculateTotalInterest(amount: number, interestRate: number, term: number): number {
-  // Interés mensual * número de meses
-  return amount * (interestRate / 100) * term;
+  // Porcentaje de Interés Total = Interés Mensual × Plazo en meses
+  const totalInterestPercent = interestRate * term;
+  
+  // Monto de Interés = Monto Principal × (Porcentaje Total / 100)
+  return amount * (totalInterestPercent / 100);
 }
 
 const seedLoans: Loan[] = [
