@@ -131,6 +131,9 @@ interface AppState {
   users: User[];
   login: (pin: string) => boolean;
   logout: () => void;
+  addUser: (user: Omit<User, 'id' | 'createdAt'>) => void;
+  updateUser: (id: string, data: Partial<User>) => void;
+  deleteUser: (id: string) => void;
 
   // Clients
   clients: Client[];
@@ -142,6 +145,7 @@ interface AppState {
   loans: Loan[];
   addLoan: (loan: Omit<Loan, 'id' | 'createdAt' | 'payments' | 'installmentAmount' | 'totalAmount' | 'totalInterest'>) => Loan;
   updateLoan: (id: string, data: Partial<Loan>) => void;
+  deleteLoan: (id: string) => void;
 
   // Payments
   addPayment: (payment: Omit<Payment, 'id' | 'receiptNumber' | 'synced'>) => Payment;
@@ -203,6 +207,15 @@ export const useStore = create<AppState>()(
         return false;
       },
       logout: () => set({ currentUser: null }),
+      addUser: (user) => set(state => ({
+        users: [...state.users, { ...user, id: uuidv4(), createdAt: new Date().toISOString().split('T')[0] }]
+      })),
+      updateUser: (id, data) => set(state => ({
+        users: state.users.map(u => u.id === id ? { ...u, ...data } : u)
+      })),
+      deleteUser: (id) => set(state => ({
+        users: state.users.filter(u => u.id !== id)
+      })),
 
       // Clients
       clients: seedClients,
@@ -236,6 +249,9 @@ export const useStore = create<AppState>()(
       },
       updateLoan: (id, data) => set(state => ({
         loans: state.loans.map(l => l.id === id ? { ...l, ...data } : l)
+      })),
+      deleteLoan: (id) => set(state => ({
+        loans: state.loans.filter(l => l.id !== id)
       })),
 
       // Payments

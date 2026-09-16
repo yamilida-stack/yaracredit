@@ -1,11 +1,11 @@
 import { useState, useMemo } from 'react';
 import { useStore } from '../store';
 import { Modal, Button, Input, Select, Card, Table, Badge, formatCurrency, formatDate, EmptyState } from '../components/ui';
-import { Plus, Search, DollarSign, Eye, FileText, RefreshCw } from 'lucide-react';
+import { Plus, Search, DollarSign, Eye, FileText, RefreshCw, Trash2 } from 'lucide-react';
 import type { Loan, LoanType, LoanModality } from '../types';
 
 export default function LoansPage() {
-  const { loans, clients, articles, addLoan, addNotification, currentUser, routes } = useStore();
+  const { loans, clients, articles, addLoan, deleteLoan, addNotification, currentUser, routes } = useStore();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showModal, setShowModal] = useState(false);
@@ -144,7 +144,21 @@ export default function LoansPage() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1">
-                      <button onClick={() => setShowDetail(loan)} className="p-2 hover:bg-blue-50 rounded-lg text-blue-600"><Eye size={16} /></button>
+                      <button onClick={() => setShowDetail(loan)} className="p-2 hover:bg-blue-50 rounded-lg text-blue-600" title="Ver detalle"><Eye size={16} /></button>
+                      {currentUser?.role === 'admin' && (
+                        <button
+                          onClick={() => {
+                            if (confirm('¿Estás seguro de eliminar este préstamo? Esta acción no se puede deshacer.')) {
+                              deleteLoan(loan.id);
+                              addNotification('success', 'Préstamo eliminado');
+                            }
+                          }}
+                          className="p-2 hover:bg-red-50 rounded-lg text-red-600"
+                          title="Eliminar préstamo"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
