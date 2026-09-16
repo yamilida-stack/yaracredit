@@ -59,6 +59,7 @@ export interface Loan {
   observations?: string;
   purpose?: string;
   lateFeeApplied?: number;
+  preferredDay?: string; // Día de cobro preferido
   createdAt: string;
   notes?: string;
 }

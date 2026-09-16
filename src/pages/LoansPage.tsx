@@ -144,44 +144,35 @@ export default function LoansPage() {
 
   // Función para calcular fecha de cobro
   function calculateDueDate(startDate: Date, installmentNumber: number, frequency: PaymentFrequency, preferredDay: PreferredDay): Date {
-    const date = new Date(startDate);
-    
-    // Ajustar al día preferido si es la primera cuota
-    if (installmentNumber === 1) {
-      const dayMap: Record<PreferredDay, number> = {
-        'Lunes': 1, 'Martes': 2, 'Miércoles': 3,
-        'Jueves': 4, 'Viernes': 5, 'Sábado': 6
-      };
-      const targetDay = dayMap[preferredDay];
-      const currentDay = date.getDay();
-      const daysToAdd = (targetDay - currentDay + 7) % 7;
-      date.setDate(date.getDate() + daysToAdd);
-      return date;
-    }
-
-    // Calcular fecha según frecuencia
-    if (frequency === 'Semanal') {
-      date.setDate(date.getDate() + (installmentNumber - 1) * 7);
-    } else if (frequency === 'Quincenal') {
-      date.setDate(date.getDate() + (installmentNumber - 1) * 15);
-    } else if (frequency === 'Mensual') {
-      date.setMonth(date.getMonth() + (installmentNumber - 1));
-    }
-
-    // Asegurar que caiga en el día preferido
     const dayMap: Record<PreferredDay, number> = {
       'Lunes': 1, 'Martes': 2, 'Miércoles': 3,
       'Jueves': 4, 'Viernes': 5, 'Sábado': 6
     };
     const targetDay = dayMap[preferredDay];
-    const currentDay = date.getDay();
     
-    if (currentDay !== targetDay) {
-      const diff = (targetDay - currentDay + 7) % 7;
-      date.setDate(date.getDate() + diff);
+    // Paso 1: Ajustar fecha de inicio al día preferido
+    const firstDueDate = new Date(startDate);
+    const currentDay = firstDueDate.getDay();
+    const daysToAdd = (targetDay - currentDay + 7) % 7;
+    firstDueDate.setDate(firstDueDate.getDate() + daysToAdd);
+    
+    // Paso 2: Calcular fecha de la cuota específica desde la primera fecha ajustada
+    const dueDate = new Date(firstDueDate);
+    
+    if (installmentNumber === 1) {
+      return dueDate;
     }
-
-    return date;
+    
+    // Calcular según frecuencia desde la primera fecha de cobro
+    if (frequency === 'Semanal') {
+      dueDate.setDate(dueDate.getDate() + (installmentNumber - 1) * 7);
+    } else if (frequency === 'Quincenal') {
+      dueDate.setDate(dueDate.getDate() + (installmentNumber - 1) * 15);
+    } else if (frequency === 'Mensual') {
+      dueDate.setMonth(dueDate.getMonth() + (installmentNumber - 1));
+    }
+    
+    return dueDate;
   }
 
   const openCreate = () => {
@@ -224,6 +215,7 @@ export default function LoansPage() {
       guarantees: form.guarantees ? [form.guarantees] : undefined,
       observations: form.observations || undefined,
       purpose: form.purpose || undefined,
+      preferredDay: form.preferredDay,
     });
     
     addNotification('success', 'Préstamo creado exitosamente');
@@ -584,31 +576,32 @@ export default function LoansPage() {
 
               {/* Tabla de Amortización */}
               {calculation.schedule.length > 0 && (
-                <details className="mt-4">
-                  <summary className="cursor-pointer text-sm font-medium text-purple-700 hover:text-purple-900">
-                    Ver Tabla de Amortización Completa
-                  </summary>
-                  <div className="mt-3 max-h-60 overflow-y-auto">
+                <div className="mt-4">
+                  <h5 className="text-sm font-bold text-purple-900 mb-2 flex items-center gap-2">
+                    <Calendar size={16} />
+                    Calendario de Pagos (Día de cobro: {form.preferredDay})
+                  </h5>
+                  <div className="max-h-64 overflow-y-auto border border-purple-200 rounded-xl">
                     <table className="w-full text-xs">
                       <thead className="bg-purple-100 sticky top-0">
                         <tr>
-                          <th className="px-2 py-1 text-left">#</th>
-                          <th className="px-2 py-1 text-left">Fecha de Cobro</th>
-                          <th className="px-2 py-1 text-right">Monto Cuota</th>
+                          <th className="px-3 py-2 text-left font-semibold text-purple-900">#</th>
+                          <th className="px-3 py-2 text-left font-semibold text-purple-900">Fecha de Cobro</th>
+                          <th className="px-3 py-2 text-right font-semibold text-purple-900">Monto Cuota</th>
                         </tr>
                       </thead>
                       <tbody>
                         {calculation.schedule.map((row) => (
-                          <tr key={row.installmentNumber} className="border-t hover:bg-gray-50">
-                            <td className="px-2 py-1">{row.installmentNumber}</td>
-                            <td className="px-2 py-1">{formatDate(row.dueDate)}</td>
-                            <td className="px-2 py-1 text-right font-medium">{formatCurrency(row.amount)}</td>
+                          <tr key={row.installmentNumber} className="border-t hover:bg-purple-50">
+                            <td className="px-3 py-2 font-medium text-purple-700">{row.installmentNumber}</td>
+                            <td className="px-3 py-2 text-gray-700">{formatDate(row.dueDate)}</td>
+                            <td className="px-3 py-2 text-right font-bold text-gray-900">{formatCurrency(row.amount)}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
-                </details>
+                </div>
               )}
             </div>
           )}
@@ -640,8 +633,9 @@ export default function LoansPage() {
           // Generar tabla de cuotas con números enteros
           const schedule = [];
           const startDate = new Date(showDetail.startDate);
+          const preferredDay = (showDetail.preferredDay || 'Lunes') as PreferredDay;
           for (let i = 1; i <= calculo.totalCuotas; i++) {
-            const dueDate = calculateDueDate(startDate, i, showDetail.type.charAt(0).toUpperCase() + showDetail.type.slice(1) as 'Semanal' | 'Quincenal' | 'Mensual', 'Lunes');
+            const dueDate = calculateDueDate(startDate, i, showDetail.type.charAt(0).toUpperCase() + showDetail.type.slice(1) as 'Semanal' | 'Quincenal' | 'Mensual', preferredDay);
             schedule.push({
               number: i,
               date: dueDate.toISOString().split('T')[0],
@@ -665,6 +659,7 @@ export default function LoansPage() {
                     <p className="text-xs text-gray-500 mb-1">Tipo de Crédito</p>
                     <p className="font-bold text-gray-900 capitalize">{showDetail.type} - {showDetail.modality}</p>
                     <p className="text-sm text-gray-600">{showDetail.term} meses • Inicio: {formatDate(showDetail.startDate)}</p>
+                    <p className="text-sm text-purple-600 font-medium">Día de cobro: {showDetail.preferredDay || 'Lunes'}</p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500 mb-1">Monto Principal</p>
@@ -704,7 +699,7 @@ export default function LoansPage() {
               <div>
                 <h4 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
                   <Calendar size={20} className="text-purple-600" />
-                  Tabla de Cuotas ({calculo.totalCuotas} cuotas de {formatCurrency(Math.round(calculo.valorCuota))})
+                  Tabla de Cuotas ({calculo.totalCuotas} cuotas de {formatCurrency(Math.round(calculo.valorCuota))}) - Día de cobro: {showDetail.preferredDay || 'Lunes'}
                 </h4>
                 <div className="max-h-80 overflow-y-auto border border-gray-200 rounded-xl">
                   <table className="w-full text-sm">
