@@ -1,30 +1,71 @@
 import { useState } from 'react';
-import { useStore } from '../store';
-import { Lock, Shield, Eye, EyeOff } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { Mail, Lock, Eye, EyeOff, Shield } from 'lucide-react';
 
 export default function LoginPage() {
-  const [pin, setPin] = useState('');
-  const [showPin, setShowPin] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const login = useStore(s => s.login);
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [fullName, setFullName] = useState('');
+  const { signIn, signUp, resetPassword } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-    setTimeout(() => {
-      const success = login(pin);
-      if (!success) {
-        setError('PIN incorrecto o usuario inactivo');
+
+    try {
+      if (isSignUp) {
+        // Registro
+        if (!fullName) {
+          setError('Por favor ingresa tu nombre completo');
+          setLoading(false);
+          return;
+        }
+        const { error } = await signUp(email, password, fullName);
+        if (error) {
+          setError(error.message === 'User already registered' 
+            ? 'Este correo ya está registrado' 
+            : error.message);
+        } else {
+          setError('');
+          alert('¡Registro exitoso! Revisa tu correo para confirmar tu cuenta.');
+          setIsSignUp(false);
+        }
+      } else {
+        // Inicio de sesión
+        const { error } = await signIn(email, password);
+        if (error) {
+          setError(error.message === 'Invalid login credentials'
+            ? 'Correo o contraseña incorrectos'
+            : error.message === 'Email not confirmed'
+            ? 'Por favor confirma tu correo electrónico'
+            : error.message);
+        }
       }
+    } catch (err) {
+      setError('Error de conexión. Intenta nuevamente.');
+    } finally {
       setLoading(false);
-    }, 500);
+    }
   };
 
-  const handlePinInput = (value: string) => {
-    if (/^\d{0,6}$/.test(value)) {
-      setPin(value);
+  const handleResetPassword = async () => {
+    if (!email) {
+      setError('Ingresa tu correo electrónico primero');
+      return;
+    }
+    setLoading(true);
+    const { error } = await resetPassword(email);
+    setLoading(false);
+    
+    if (error) {
+      setError(error.message);
+    } else {
+      alert('Se ha enviado un correo para resetear tu contraseña');
       setError('');
     }
   };
@@ -48,79 +89,125 @@ export default function LoginPage() {
 
         {/* Login Card */}
         <div className="bg-white/10 backdrop-blur-xl rounded-3xl p-8 border border-white/20 shadow-2xl">
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div className="text-center">
-              <h2 className="text-xl font-semibold text-white">Iniciar Sesión</h2>
-              <p className="text-purple-200 text-sm mt-1">Ingresa tu PIN de acceso</p>
+              <h2 className="text-xl font-semibold text-white">
+                {isSignUp ? 'Crear Cuenta' : 'Iniciar Sesión'}
+              </h2>
+              <p className="text-purple-200 text-sm mt-1">
+                {isSignUp ? 'Regístrate para comenzar' : 'Ingresa tus credenciales'}
+              </p>
             </div>
 
+            {/* Full Name (solo en registro) */}
+            {isSignUp && (
+              <div className="relative">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2">
+                  <Shield size={20} className="text-purple-300" />
+                </div>
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Nombre completo"
+                  className="w-full pl-12 pr-4 py-3 bg-white/10 border border-white/20 rounded-2xl text-white placeholder:text-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all"
+                  required={isSignUp}
+                />
+              </div>
+            )}
+
+            {/* Email */}
+            <div className="relative">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2">
+                <Mail size={20} className="text-purple-300" />
+              </div>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Correo electrónico"
+                className="w-full pl-12 pr-4 py-3 bg-white/10 border border-white/20 rounded-2xl text-white placeholder:text-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all"
+                required
+              />
+            </div>
+
+            {/* Password */}
             <div className="relative">
               <div className="absolute left-4 top-1/2 -translate-y-1/2">
                 <Lock size={20} className="text-purple-300" />
               </div>
               <input
-                type={showPin ? 'text' : 'password'}
-                value={pin}
-                onChange={(e) => handlePinInput(e.target.value)}
-                placeholder="••••"
-                maxLength={6}
-                className="w-full pl-12 pr-12 py-4 bg-white/10 border border-white/20 rounded-2xl text-white text-center text-2xl tracking-[0.5em] placeholder:text-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all"
-                autoFocus
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Contraseña"
+                className="w-full pl-12 pr-12 py-3 bg-white/10 border border-white/20 rounded-2xl text-white placeholder:text-purple-300/50 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all"
+                required
+                minLength={6}
               />
               <button
                 type="button"
-                onClick={() => setShowPin(!showPin)}
+                onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-4 top-1/2 -translate-y-1/2 text-purple-300 hover:text-white transition-colors"
               >
-                {showPin ? <EyeOff size={20} /> : <Eye size={20} />}
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
             </div>
 
+            {/* Error Message */}
             {error && (
               <div className="bg-red-500/20 border border-red-400/30 rounded-xl p-3 text-center">
                 <p className="text-red-200 text-sm">{error}</p>
               </div>
             )}
 
+            {/* Submit Button */}
             <button
               type="submit"
-              disabled={pin.length < 4 || loading}
-              className="w-full py-4 bg-white text-purple-900 font-bold rounded-2xl hover:bg-purple-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+              disabled={loading}
+              className="w-full py-3 bg-white text-purple-900 font-bold rounded-2xl hover:bg-purple-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
                   <span className="w-5 h-5 border-2 border-purple-900 border-t-transparent rounded-full animate-spin" />
-                  Verificando...
+                  {isSignUp ? 'Registrando...' : 'Iniciando sesión...'}
                 </span>
-              ) : 'Ingresar'}
+              ) : (
+                isSignUp ? 'Crear Cuenta' : 'Iniciar Sesión'
+              )}
             </button>
-          </form>
 
-          {/* Demo PINs */}
-          <div className="mt-6 pt-6 border-t border-white/10">
-            <p className="text-purple-200 text-xs text-center mb-3">PINs de demostración:</p>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { pin: '1234', role: 'Admin' },
-                { pin: '2345', role: 'Gerente' },
-                { pin: '3456', role: 'Cobrador' },
-                { pin: '5678', role: 'Solo lectura' },
-              ].map(d => (
-                <button
-                  key={d.pin}
-                  onClick={() => handlePinInput(d.pin)}
-                  className="px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs text-purple-200 hover:text-white transition-all"
-                >
-                  <span className="font-mono">{d.pin}</span>
-                  <span className="text-purple-400 ml-1">({d.role})</span>
-                </button>
-              ))}
+            {/* Toggle Sign Up / Sign In */}
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSignUp(!isSignUp);
+                  setError('');
+                }}
+                className="text-purple-200 hover:text-white text-sm transition-colors"
+              >
+                {isSignUp ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes cuenta? Regístrate'}
+              </button>
             </div>
-          </div>
+
+            {/* Reset Password (solo en login) */}
+            {!isSignUp && (
+              <div className="text-center pt-2 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={handleResetPassword}
+                  className="text-purple-300 hover:text-white text-xs transition-colors"
+                >
+                  ¿Olvidaste tu contraseña?
+                </button>
+              </div>
+            )}
+          </form>
         </div>
 
         <p className="text-center text-purple-300/60 text-xs mt-6">
-          YaraCredit v1.0 — Offline-First PWA
+          YaraCredit v1.0 — Autenticación Segura con Supabase
         </p>
       </div>
     </div>

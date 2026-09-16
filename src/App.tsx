@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useStore } from './store';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import { ToastContainer } from './components/ui';
+import { useStore } from './store';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import ClientsPage from './pages/ClientsPage';
@@ -18,11 +19,12 @@ import SettingsPage from './pages/SettingsPage';
 import FinancedDevicesPage from './pages/FinancedDevicesPage';
 import RiskScorePage from './pages/RiskScorePage';
 
-function App() {
-  const { currentUser, notifications, removeNotification, settings } = useStore();
+function AppContent() {
+  const { user, profile, loading } = useAuth();
+  const { notifications, removeNotification, settings } = useStore();
   const [currentPage, setCurrentPage] = useState('dashboard');
 
-  // Apply dark mode
+  // Aplicar modo oscuro
   useEffect(() => {
     if (settings.darkMode) {
       document.documentElement.classList.add('dark');
@@ -31,8 +33,20 @@ function App() {
     }
   }, [settings.darkMode]);
 
-  // Not logged in
-  if (!currentUser) {
+  // Mostrar loading mientras verifica autenticación
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-white text-lg">Cargando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Si no hay usuario, mostrar login
+  if (!user) {
     return (
       <>
         <LoginPage />
@@ -41,33 +55,42 @@ function App() {
     );
   }
 
-  const renderPage = () => {
-    switch (currentPage) {
-      case 'dashboard': return <DashboardPage />;
-      case 'clients': return <ClientsPage />;
-      case 'loans': return <LoansPage />;
-      case 'collections': return <CollectionsPage />;
-      case 'routes': return <RoutesPage />;
-      case 'stock': return <StockPage />;
-      case 'cash': return <CashPage />;
-      case 'contracts': return <ContractsPage />;
-      case 'payroll': return <PayrollPage />;
-      case 'reports': return <ReportsPage />;
-      case 'users': return <UsersPage />;
-      case 'settings': return <SettingsPage />;
-      case 'financed-devices': return <FinancedDevicesPage />;
-      case 'risk-score': return <RiskScorePage />;
-      default: return <DashboardPage />;
-    }
-  };
-
+  // Si hay usuario, mostrar la aplicación
   return (
     <div className={settings.darkMode ? 'dark' : ''}>
       <Layout currentPage={currentPage} onNavigate={setCurrentPage}>
-        {renderPage()}
+        {renderPage(currentPage)}
       </Layout>
       <ToastContainer notifications={notifications} onRemove={removeNotification} />
     </div>
+  );
+}
+
+function renderPage(page: string) {
+  switch (page) {
+    case 'dashboard': return <DashboardPage />;
+    case 'clients': return <ClientsPage />;
+    case 'loans': return <LoansPage />;
+    case 'collections': return <CollectionsPage />;
+    case 'routes': return <RoutesPage />;
+    case 'stock': return <StockPage />;
+    case 'cash': return <CashPage />;
+    case 'contracts': return <ContractsPage />;
+    case 'payroll': return <PayrollPage />;
+    case 'reports': return <ReportsPage />;
+    case 'users': return <UsersPage />;
+    case 'settings': return <SettingsPage />;
+    case 'financed-devices': return <FinancedDevicesPage />;
+    case 'risk-score': return <RiskScorePage />;
+    default: return <DashboardPage />;
+  }
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 

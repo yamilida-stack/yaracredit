@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../store';
+import { useAuth } from '../contexts/AuthContext';
 import {
   LayoutDashboard, Users, DollarSign, Package, Receipt, FileText,
   Wallet, UserCog, BarChart3, Route, LogOut, Menu, X, Bell, Wifi, WifiOff, Settings, Shield
@@ -29,12 +30,13 @@ const navItems = [
 ];
 
 export default function Layout({ children, currentPage, onNavigate }: LayoutProps) {
-  const { currentUser, logout, notifications } = useStore();
+  const { profile, signOut } = useAuth();
+  const { notifications } = useStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isOnline] = useState(navigator.onLine);
 
   const filteredNav = navItems.filter(item =>
-    currentUser && item.roles.includes(currentUser.role)
+    profile && item.roles.includes(profile.role)
   );
 
   const roleLabels = {
@@ -94,14 +96,14 @@ export default function Layout({ children, currentPage, onNavigate }: LayoutProp
           <div className="flex items-center gap-3 px-3 py-2">
             <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
               <span className="text-purple-700 font-bold text-sm">
-                {currentUser?.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                {profile?.full_name?.split(' ').map((n: string) => n[0]).join('').slice(0, 2) || 'US'}
               </span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-gray-900 truncate">{currentUser?.name}</p>
-              <p className="text-xs text-gray-400">{currentUser ? roleLabels[currentUser.role] : ''}</p>
+              <p className="text-sm font-semibold text-gray-900 truncate">{profile?.full_name || profile?.email}</p>
+              <p className="text-xs text-gray-400">{profile ? roleLabels[profile.role as keyof typeof roleLabels] : ''}</p>
             </div>
-            <button onClick={logout} className="p-2 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-500 transition-colors" title="Cerrar sesión">
+            <button onClick={signOut} className="p-2 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-500 transition-colors" title="Cerrar sesión">
               <LogOut size={18} />
             </button>
           </div>
