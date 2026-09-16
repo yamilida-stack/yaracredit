@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
+  base: '/',
   plugins: [react(), tailwindcss()],
   server: {
     host: "0.0.0.0",
@@ -10,6 +11,19 @@ export default defineConfig({
     strictPort: true,
     hmr: {
       port: 3000,
+    },
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          charts: ['recharts'],
+          store: ['zustand'],
+        },
+      },
     },
   },
 });
