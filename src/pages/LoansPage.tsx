@@ -278,33 +278,89 @@ export default function LoansPage() {
       {/* Table */}
       <Card>
         {filtered.length > 0 ? (
-          <Table headers={['Cliente', 'Monto', 'Frecuencia', 'Cuota', 'Pagos', 'Saldo', 'Estado', 'Acciones']}>
+          <Table headers={['Cliente / Cédula', 'Tipo / Frecuencia', 'Monto Principal', 'Tasa Aplicada', 'Cuota', 'Total a Pagar', 'Estado', 'Acciones']}>
             {filtered.map(loan => {
               const client = clients.find(c => c.id === loan.clientId);
               const paid = loan.payments.reduce((s, p) => s + p.amount, 0);
-              const remaining = loan.totalAmount - paid;
+              
+              // Calcular usando la misma función del modal
+              const calculo = calcularPrestamo({
+                montoSinInteres: loan.amount,
+                tasaMensualPct: loan.interestRate,
+                plazoMeses: loan.term,
+                frecuencia: loan.type.charAt(0).toUpperCase() + loan.type.slice(1) as 'Semanal' | 'Quincenal' | 'Mensual'
+              });
+              
+              // Determinar estado visual
+              const remaining = calculo.montoConInteres - paid;
+              let estadoLabel = 'Al día';
+              let estadoVariant: 'success' | 'warning' | 'danger' | 'info' = 'success';
+              
+              if (loan.status === 'mora') {
+                estadoLabel = 'En mora';
+                estadoVariant = 'danger';
+              } else if (loan.status === 'cancelado' || remaining <= 0) {
+                estadoLabel = 'Finalizado';
+                estadoVariant = 'info';
+              }
+              
               return (
                 <tr key={loan.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3">
                     <p className="text-sm font-medium text-gray-900">{client?.fullName}</p>
-                    <p className="text-xs text-gray-400">{loan.modality === 'articulo' ? '📦 Artículo' : '💵 Efectivo'}</p>
+                    <p className="text-xs text-gray-400 font-mono">{client?.cedula}</p>
                   </td>
-                  <td className="px-4 py-3 text-sm font-medium">{formatCurrency(loan.amount)}</td>
                   <td className="px-4 py-3">
-                    <Badge variant="info">{loan.type}</Badge>
-                    <p className="text-xs text-gray-400 mt-0.5">{loan.term} meses</p>
+                    <Badge variant="info">{loan.type.charAt(0).toUpperCase() + loan.type.slice(1)}</Badge>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {loan.modality === 'articulo' ? '📦 Artículo' : '💵 Efectivo'}
+                    </p>
+                    <p className="text-xs text-gray-400">{loan.term} meses</p>
                   </td>
-                  <td className="px-4 py-3 text-sm">{formatCurrency(loan.installmentAmount)}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{loan.payments.length} pagos</td>
-                  <td className="px-4 py-3 text-sm font-medium text-red-600">{formatCurrency(remaining)}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                    {formatCurrency(Math.round(calculo.montoSinInteres * 100) / 100)}
+                  </td>
                   <td className="px-4 py-3">
-                    <Badge variant={loan.status === 'activo' ? 'success' : loan.status === 'mora' ? 'danger' : loan.status === 'cancelado' ? 'info' : 'warning'}>
-                      {loan.status}
+                    <p className="text-sm font-medium text-gray-900">{loan.interestRate}% mens.</p>
+                    <p className="text-xs text-gray-500">{calculo.tasaTotalPorcentaje.toFixed(0)}% total</p>
+                  </td>
+                  <td className="px-4 py-3 text-sm font-semibold text-purple-700">
+                    {formatCurrency(Math.round(calculo.valorCuota * 100) / 100)}
+                  </td>
+                  <td className="px-4 py-3 text-sm font-bold text-gray-900">
+                    {formatCurrency(Math.round(calculo.montoConInteres * 100) / 100)}
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge variant={estadoVariant}>
+                      {estadoLabel}
                     </Badge>
+                    {loan.status === 'activo' && remaining > 0 && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Faltan: {formatCurrency(Math.round(remaining * 100) / 100)}
+                      </p>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1">
-                      <button onClick={() => setShowDetail(loan)} className="p-2 hover:bg-blue-50 rounded-lg text-blue-600" title="Ver detalle"><Eye size={16} /></button>
+                      <button 
+                        onClick={() => setShowDetail(loan)} 
+                        className="p-2 hover:bg-blue-50 rounded-lg text-blue-600" 
+                        title="Ver detalle"
+                      >
+                        <Eye size={16} />
+                      </button>
+                      {loan.status === 'activo' && remaining > 0 && (
+                        <button 
+                          onClick={() => {
+                            // Aquí iría la lógica para registrar pago
+                            addNotification('info', 'Función de registrar pago - próximamente');
+                          }}
+                          className="p-2 hover:bg-green-50 rounded-lg text-green-600" 
+                          title="Registrar pago"
+                        >
+                          <DollarSign size={16} />
+                        </button>
+                      )}
                       {currentUser?.role === 'admin' && (
                         <button
                           onClick={() => {
