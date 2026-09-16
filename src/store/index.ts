@@ -68,7 +68,8 @@ function calcularPrestamo({
   if (frecuencia === 'semanal') totalCuotas = meses * 4;
   if (frecuencia === 'quincenal') totalCuotas = meses * 2;
 
-  const valorCuota = totalCuotas > 0 ? montoConInteres / totalCuotas : 0;
+  // CUOTAS EN NÚMEROS ENTEROS
+  const valorCuota = totalCuotas > 0 ? Math.round(montoConInteres / totalCuotas) : 0;
 
   return {
     montoSinInteres: principal,
@@ -81,7 +82,7 @@ function calcularPrestamo({
   };
 }
 
-// Calculate loan installments - MODELO EXCEL/VBA
+// Calculate loan installments - MODELO EXCEL/VBA (CUOTAS ENTERAS)
 function calculateInstallment(amount: number, interestRate: number, term: number, type: LoanType): number {
   // Usar la función exacta del modelo Excel/VBA
   const { valorCuota } = calcularPrestamo({
@@ -91,6 +92,7 @@ function calculateInstallment(amount: number, interestRate: number, term: number
     frecuencia: type
   });
   
+  // REDONDEAR A NÚMERO ENTERO (hacia arriba para no perder dinero)
   return Math.ceil(valorCuota);
 }
 

@@ -80,7 +80,8 @@ export default function LoansPage() {
     if (frecuencia === 'Semanal') totalCuotas = meses * 4;
     if (frecuencia === 'Quincenal') totalCuotas = meses * 2;
 
-    const valorCuota = totalCuotas > 0 ? montoConInteres / totalCuotas : 0;
+    // CUOTAS EN NÚMEROS ENTEROS
+    const valorCuota = totalCuotas > 0 ? Math.round(montoConInteres / totalCuotas) : 0;
 
     return {
       montoSinInteres: principal,
@@ -619,67 +620,178 @@ export default function LoansPage() {
         </form>
       </Modal>
 
-      {/* Detail Modal */}
-      <Modal isOpen={!!showDetail} onClose={() => setShowDetail(null)} title="Detalle del Préstamo" size="lg">
+      {/* Detail & Edit Modal */}
+      <Modal isOpen={!!showDetail} onClose={() => setShowDetail(null)} title="Detalle y Edición del Crédito" size="xl">
         {showDetail && (() => {
           const client = clients.find(c => c.id === showDetail.clientId);
           const paid = showDetail.payments.reduce((s, p) => s + p.amount, 0);
-          const remaining = showDetail.totalAmount - paid;
-          const progress = (paid / showDetail.totalAmount) * 100;
+          
+          // Calcular usando la función exacta
+          const calculo = calcularPrestamo({
+            montoSinInteres: showDetail.amount,
+            tasaMensualPct: showDetail.interestRate,
+            plazoMeses: showDetail.term,
+            frecuencia: showDetail.type.charAt(0).toUpperCase() + showDetail.type.slice(1) as 'Semanal' | 'Quincenal' | 'Mensual'
+          });
+          
+          const remaining = calculo.montoConInteres - paid;
+          const progress = (paid / calculo.montoConInteres) * 100;
+          
+          // Generar tabla de cuotas con números enteros
+          const schedule = [];
+          const startDate = new Date(showDetail.startDate);
+          for (let i = 1; i <= calculo.totalCuotas; i++) {
+            const dueDate = calculateDueDate(startDate, i, showDetail.type.charAt(0).toUpperCase() + showDetail.type.slice(1) as 'Semanal' | 'Quincenal' | 'Mensual', 'Lunes');
+            schedule.push({
+              number: i,
+              date: dueDate.toISOString().split('T')[0],
+              amount: Math.round(calculo.valorCuota),
+              paid: i <= showDetail.payments.length,
+              paymentDate: showDetail.payments[i-1]?.date || null
+            });
+          }
+          
           return (
             <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div><p className="text-xs text-gray-500">Cliente</p><p className="font-medium">{client?.fullName}</p></div>
-                <div><p className="text-xs text-gray-500">Cédula</p><p className="font-medium">{client?.cedula}</p></div>
-                <div><p className="text-xs text-gray-500">Tipo</p><p className="font-medium capitalize">{showDetail.type} - {showDetail.modality}</p></div>
-                <div><p className="text-xs text-gray-500">Fecha Inicio</p><p className="font-medium">{formatDate(showDetail.startDate)}</p></div>
-                <div><p className="text-xs text-gray-500">Monto</p><p className="font-bold text-lg">{formatCurrency(showDetail.amount)}</p></div>
-                <div><p className="text-xs text-gray-500">Interés</p><p className="font-medium">{showDetail.interestRate}% mensual</p></div>
-                <div><p className="text-xs text-gray-500">Cuota</p><p className="font-bold text-green-700">{formatCurrency(showDetail.installmentAmount)}</p></div>
-                <div><p className="text-xs text-gray-500">Total</p><p className="font-medium">{formatCurrency(showDetail.totalAmount)}</p></div>
+              {/* Información del Cliente y Crédito */}
+              <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-5 border border-purple-200">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Cliente</p>
+                    <p className="font-bold text-gray-900">{client?.fullName}</p>
+                    <p className="text-sm text-gray-600 font-mono">{client?.cedula}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Tipo de Crédito</p>
+                    <p className="font-bold text-gray-900 capitalize">{showDetail.type} - {showDetail.modality}</p>
+                    <p className="text-sm text-gray-600">{showDetail.term} meses • Inicio: {formatDate(showDetail.startDate)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Monto Principal</p>
+                    <p className="text-2xl font-bold text-gray-900">{formatCurrency(calculo.montoSinInteres)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Tasa de Interés</p>
+                    <p className="text-2xl font-bold text-purple-700">{calculo.etiquetaTasa}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Total a Pagar</p>
+                    <p className="text-2xl font-bold text-gray-900">{formatCurrency(calculo.montoConInteres)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Cuota (Entero)</p>
+                    <p className="text-2xl font-bold text-green-700">{formatCurrency(Math.round(calculo.valorCuota))}</p>
+                  </div>
+                </div>
               </div>
 
               {/* Progress */}
-              <div>
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-gray-600">Progreso de pago</span>
-                  <span className="font-medium">{progress.toFixed(1)}%</span>
+              <div className="bg-white rounded-xl p-4 border border-gray-200">
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="font-medium text-gray-700">Progreso de Pago</span>
+                  <span className="font-bold text-purple-700">{progress.toFixed(1)}%</span>
                 </div>
-                <div className="w-full bg-gray-100 rounded-full h-3">
-                  <div className="bg-gradient-to-r from-purple-500 to-purple-700 h-3 rounded-full transition-all" style={{ width: `${progress}%` }} />
+                <div className="w-full bg-gray-100 rounded-full h-4 mb-2">
+                  <div className="bg-gradient-to-r from-purple-500 to-purple-700 h-4 rounded-full transition-all" style={{ width: `${progress}%` }} />
                 </div>
-                <div className="flex justify-between text-xs mt-1">
-                  <span className="text-green-600">Pagado: {formatCurrency(paid)}</span>
-                  <span className="text-red-600">Pendiente: {formatCurrency(remaining)}</span>
+                <div className="flex justify-between text-sm">
+                  <span className="text-green-600 font-medium">✓ Pagado: {formatCurrency(paid)}</span>
+                  <span className="text-red-600 font-medium">⏳ Pendiente: {formatCurrency(Math.round(remaining))}</span>
                 </div>
               </div>
 
-              {/* Payments */}
+              {/* Tabla de Cuotas */}
               <div>
-                <h4 className="font-bold text-gray-900 mb-3">Historial de Pagos</h4>
+                <h4 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                  <Calendar size={20} className="text-purple-600" />
+                  Tabla de Cuotas ({calculo.totalCuotas} cuotas de {formatCurrency(Math.round(calculo.valorCuota))})
+                </h4>
+                <div className="max-h-80 overflow-y-auto border border-gray-200 rounded-xl">
+                  <table className="w-full text-sm">
+                    <thead className="bg-purple-50 sticky top-0">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-semibold text-purple-900">#</th>
+                        <th className="px-3 py-2 text-left font-semibold text-purple-900">Fecha de Cobro</th>
+                        <th className="px-3 py-2 text-right font-semibold text-purple-900">Monto Cuota</th>
+                        <th className="px-3 py-2 text-center font-semibold text-purple-900">Estado</th>
+                        <th className="px-3 py-2 text-left font-semibold text-purple-900">Fecha de Pago</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {schedule.map((cuota) => (
+                        <tr key={cuota.number} className={`border-t ${cuota.paid ? 'bg-green-50' : 'hover:bg-gray-50'}`}>
+                          <td className="px-3 py-2 font-medium">{cuota.number}</td>
+                          <td className="px-3 py-2">{formatDate(cuota.date)}</td>
+                          <td className="px-3 py-2 text-right font-bold">{formatCurrency(cuota.amount)}</td>
+                          <td className="px-3 py-2 text-center">
+                            {cuota.paid ? (
+                              <Badge variant="success">✓ Pagada</Badge>
+                            ) : (
+                              <Badge variant="warning">Pendiente</Badge>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-sm text-gray-600">
+                            {cuota.paymentDate ? formatDate(cuota.paymentDate) : '-'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Historial de Pagos */}
+              <div>
+                <h4 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                  <DollarSign size={20} className="text-green-600" />
+                  Historial de Pagos Realizados
+                </h4>
                 {showDetail.payments.length > 0 ? (
-                  <div className="space-y-2">
-                    {showDetail.payments.map(p => (
-                      <div key={p.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                        <div>
-                          <p className="text-sm font-medium">{p.receiptNumber} - {formatCurrency(p.amount)}</p>
-                          <p className="text-xs text-gray-400">{formatDate(p.date)} • {p.method} • {p.synced ? '✓ Sincronizado' : '⏳ Pendiente'}</p>
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {showDetail.payments.map((p, idx) => (
+                      <div key={p.id} className="flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-xl">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                            {idx + 1}
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-gray-900">{formatCurrency(p.amount)}</p>
+                            <p className="text-xs text-gray-600">{formatDate(p.date)} • {p.method}</p>
+                          </div>
                         </div>
-                        <Badge variant={p.isLate ? 'warning' : 'success'}>{p.isLate ? 'Vencido' : 'Al día'}</Badge>
+                        <div className="text-right">
+                          <p className="text-xs text-gray-500">{p.receiptNumber}</p>
+                          <Badge variant={p.synced ? 'success' : 'warning'}>
+                            {p.synced ? '✓ Sincronizado' : '⏳ Pendiente'}
+                          </Badge>
+                        </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-gray-400 text-center py-4">Sin pagos registrados</p>
+                  <div className="text-center py-6 bg-gray-50 rounded-xl">
+                    <p className="text-gray-400 text-sm">Sin pagos registrados</p>
+                  </div>
                 )}
               </div>
 
+              {/* Garantías */}
               {showDetail.guarantees && showDetail.guarantees.length > 0 && (
                 <div>
                   <h4 className="font-bold text-gray-900 mb-2">Garantías</h4>
                   <div className="flex flex-wrap gap-2">
                     {showDetail.guarantees.map((g, i) => <Badge key={i} variant="info">{g}</Badge>)}
                   </div>
+                </div>
+              )}
+
+              {/* Observaciones */}
+              {showDetail.observations && (
+                <div>
+                  <h4 className="font-bold text-gray-900 mb-2">Observaciones</h4>
+                  <p className="text-sm text-gray-700 bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+                    {showDetail.observations}
+                  </p>
                 </div>
               )}
             </div>
