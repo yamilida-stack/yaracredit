@@ -34,59 +34,86 @@ const seedArticles: Article[] = [
   { id: 'a6', name: 'iPhone 13 128GB', description: 'iPhone 13 nuevo sellado', category: 'Electrónica', costPrice: 35000, salePrice: 48000, quantity: 2, minStock: 1, brand: 'Apple', model: 'iPhone 13', serialNumber: 'APL-2024-567', imei: '356789012345678', createdAt: '2024-02-15' },
 ];
 
-// --- FUNCIÓN DE CÁLCULO EXACTA PROPORCIONADA ---
-function calcularPrestamo(monto: number, meses: number, tasaMensual: number) {
-  // 1. Convertir a números
-  const principal = Number(monto) || 0;
-  const plazoMeses = Number(meses) || 0;
-  const tasa = Number(tasaMensual) || 0;
+// --- FUNCIÓN DE CÁLCULO EXACTA DEL MODELO EXCEL/VBA ---
+interface CalculoPrestamoParams {
+  montoSinInteres: number; // Principal prestado
+  tasaMensualPct: number;  // Ej: 15 para 15%
+  plazoMeses: number;      // Ej: 3 meses
+  frecuencia: 'semanal' | 'quincenal' | 'mensual';
+}
 
-  // 2. Porcentaje Total Fijo (Tasa x Meses)
-  // Ej: 15% mensual x 3 meses = 45%
-  const porcentajeTotal = tasa * plazoMeses;
+function calcularPrestamo({
+  montoSinInteres,
+  tasaMensualPct,
+  plazoMeses,
+  frecuencia
+}: CalculoPrestamoParams) {
+  const principal = Number(montoSinInteres) || 0;
+  const meses = Number(plazoMeses) || 0;
+  const tasaMensualDecimal = (Number(tasaMensualPct) || 0) / 100;
 
-  // 3. Monto de Interés en Dinero
-  // Ej: 10,000 * (45 / 100) = 4,500
-  const interesTotalMonto = principal * (porcentajeTotal / 100);
+  // 1. Ganancia total de interés (Monto Interés)
+  // Fórmula: Principal * Tasa Mensual * Plazo en Meses
+  const montoInteresTotal = principal * tasaMensualDecimal * meses;
 
-  // 4. Total Final a Pagar
-  // Ej: 10,000 + 4,500 = 14,500
-  const totalAPagar = principal + interesTotalMonto;
+  // 2. Monto Con Interés (Total a Pagar)
+  const montoConInteres = principal + montoInteresTotal;
+
+  // 3. Tasa Total del Período (Formato Texto para UI/Reportes)
+  const tasaTotalPorcentaje = (tasaMensualDecimal * meses) * 100;
+  const etiquetaTasa = `${tasaMensualPct}% MES (${tasaTotalPorcentaje}% TOTAL)`;
+
+  // 4. Determinación de Cuotas
+  let totalCuotas = meses;
+  if (frecuencia === 'semanal') totalCuotas = meses * 4;
+  if (frecuencia === 'quincenal') totalCuotas = meses * 2;
+
+  const valorCuota = totalCuotas > 0 ? montoConInteres / totalCuotas : 0;
 
   return {
-    porcentajeTotal,
-    interesTotalMonto,
-    totalAPagar
+    montoSinInteres: principal,
+    montoConInteres,
+    montoInteresTotal,
+    tasaTotalPorcentaje,
+    etiquetaTasa,
+    totalCuotas,
+    valorCuota
   };
 }
 
-// Calculate loan installments - INTERÉS SIMPLE MENSUAL FIJO
+// Calculate loan installments - MODELO EXCEL/VBA
 function calculateInstallment(amount: number, interestRate: number, term: number, type: LoanType): number {
-  // Usar la función exacta proporcionada
-  const { totalAPagar } = calcularPrestamo(amount, term, interestRate);
-
-  // Cantidad de Cuotas según Frecuencia
-  let totalCuotas = term;
-  if (type === 'semanal') totalCuotas = term * 4;
-  if (type === 'quincenal') totalCuotas = term * 2;
-  // Si es mensual, totalCuotas ya es igual a term
-
-  // Valor de cada Cuota
-  const valorCuota = totalAPagar / totalCuotas;
+  // Usar la función exacta del modelo Excel/VBA
+  const { valorCuota } = calcularPrestamo({
+    montoSinInteres: amount,
+    tasaMensualPct: interestRate,
+    plazoMeses: term,
+    frecuencia: type
+  });
   
   return Math.ceil(valorCuota);
 }
 
-function calculateTotalInterest(amount: number, interestRate: number, term: number): number {
-  // Usar la función exacta proporcionada
-  const { interesTotalMonto } = calcularPrestamo(amount, term, interestRate);
-  return interesTotalMonto;
+function calculateTotalInterest(amount: number, interestRate: number, term: number, type: LoanType = 'mensual'): number {
+  // Usar la función exacta del modelo Excel/VBA
+  const { montoInteresTotal } = calcularPrestamo({
+    montoSinInteres: amount,
+    tasaMensualPct: interestRate,
+    plazoMeses: term,
+    frecuencia: type
+  });
+  return montoInteresTotal;
 }
 
-function calculateTotalAmount(amount: number, interestRate: number, term: number): number {
-  // Usar la función exacta proporcionada
-  const { totalAPagar } = calcularPrestamo(amount, term, interestRate);
-  return totalAPagar;
+function calculateTotalAmount(amount: number, interestRate: number, term: number, type: LoanType = 'mensual'): number {
+  // Usar la función exacta del modelo Excel/VBA
+  const { montoConInteres } = calcularPrestamo({
+    montoSinInteres: amount,
+    tasaMensualPct: interestRate,
+    plazoMeses: term,
+    frecuencia: type
+  });
+  return montoConInteres;
 }
 
 const seedLoans: Loan[] = [
@@ -271,8 +298,8 @@ export const useStore = create<AppState>()(
       loans: seedLoans,
       addLoan: (loanData) => {
         const installmentAmount = calculateInstallment(loanData.amount, loanData.interestRate, loanData.term, loanData.type);
-        const totalInterest = calculateTotalInterest(loanData.amount, loanData.interestRate, loanData.term);
-        const totalAmount = calculateTotalAmount(loanData.amount, loanData.interestRate, loanData.term);
+        const totalInterest = calculateTotalInterest(loanData.amount, loanData.interestRate, loanData.term, loanData.type);
+        const totalAmount = calculateTotalAmount(loanData.amount, loanData.interestRate, loanData.term, loanData.type);
         const newLoan: Loan = {
           ...loanData,
           id: uuidv4(),

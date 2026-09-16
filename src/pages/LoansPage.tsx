@@ -46,29 +46,50 @@ export default function LoansPage() {
     });
   }, [loans, clients, search, statusFilter, currentUser]);
 
-  // --- FUNCIÓN DE CÁLCULO EXACTA PROPORCIONADA ---
-  const calcularPrestamo = (monto: number, meses: number, tasaMensual: number) => {
-    // 1. Convertir a números
-    const principal = Number(monto) || 0;
-    const plazoMeses = Number(meses) || 0;
-    const tasa = Number(tasaMensual) || 0;
+  // --- FUNCIÓN DE CÁLCULO EXACTA DEL MODELO EXCEL/VBA ---
+  interface CalculoPrestamoParams {
+    montoSinInteres: number; // Principal prestado
+    tasaMensualPct: number;  // Ej: 15 para 15%
+    plazoMeses: number;      // Ej: 3 meses
+    frecuencia: 'Semanal' | 'Quincenal' | 'Mensual';
+  }
 
-    // 2. Porcentaje Total Fijo (Tasa x Meses)
-    // Ej: 15% mensual x 3 meses = 45%
-    const porcentajeTotal = tasa * plazoMeses;
+  const calcularPrestamo = ({
+    montoSinInteres,
+    tasaMensualPct,
+    plazoMeses,
+    frecuencia
+  }: CalculoPrestamoParams) => {
+    const principal = Number(montoSinInteres) || 0;
+    const meses = Number(plazoMeses) || 0;
+    const tasaMensualDecimal = (Number(tasaMensualPct) || 0) / 100;
 
-    // 3. Monto de Interés en Dinero
-    // Ej: 10,000 * (45 / 100) = 4,500
-    const interesTotalMonto = principal * (porcentajeTotal / 100);
+    // 1. Ganancia total de interés (Monto Interés)
+    // Fórmula: Principal * Tasa Mensual * Plazo en Meses
+    const montoInteresTotal = principal * tasaMensualDecimal * meses;
 
-    // 4. Total Final a Pagar
-    // Ej: 10,000 + 4,500 = 14,500
-    const totalAPagar = principal + interesTotalMonto;
+    // 2. Monto Con Interés (Total a Pagar)
+    const montoConInteres = principal + montoInteresTotal;
+
+    // 3. Tasa Total del Período (Formato Texto para UI/Reportes)
+    const tasaTotalPorcentaje = (tasaMensualDecimal * meses) * 100;
+    const etiquetaTasa = `${tasaMensualPct}% MES (${tasaTotalPorcentaje}% TOTAL)`;
+
+    // 4. Determinación de Cuotas
+    let totalCuotas = meses;
+    if (frecuencia === 'Semanal') totalCuotas = meses * 4;
+    if (frecuencia === 'Quincenal') totalCuotas = meses * 2;
+
+    const valorCuota = totalCuotas > 0 ? montoConInteres / totalCuotas : 0;
 
     return {
-      porcentajeTotal,
-      interesTotalMonto,
-      totalAPagar
+      montoSinInteres: principal,
+      montoConInteres,
+      montoInteresTotal,
+      tasaTotalPorcentaje,
+      etiquetaTasa,
+      totalCuotas,
+      valorCuota
     };
   };
 
@@ -81,47 +102,41 @@ export default function LoansPage() {
     // Validar que todos los valores sean números válidos
     if (principal <= 0 || plazoMeses <= 0) {
       return {
-        porcentajeTotal: 0,
-        interesTotalMonto: 0,
-        totalAPagar: 0,
+        montoSinInteres: 0,
+        montoConInteres: 0,
+        montoInteresTotal: 0,
+        tasaTotalPorcentaje: 0,
+        etiquetaTasa: '',
         totalCuotas: 0,
         valorCuota: 0,
         schedule: [] as AmortizationSchedule[]
       };
     }
 
-    // Usar la función exacta proporcionada
-    const { porcentajeTotal, interesTotalMonto, totalAPagar } = calcularPrestamo(principal, plazoMeses, tasaMensual);
-
-    // Cantidad de Cuotas según Frecuencia
-    let totalCuotas = plazoMeses;
-    if (form.frequency === 'Semanal') totalCuotas = plazoMeses * 4;
-    if (form.frequency === 'Quincenal') totalCuotas = plazoMeses * 2;
-    // Si es Mensual, totalCuotas ya es igual a plazoMeses
-
-    // Valor de cada Cuota
-    const valorCuota = totalAPagar / totalCuotas;
+    // Usar la función exacta del modelo Excel/VBA
+    const resultado = calcularPrestamo({
+      montoSinInteres: principal,
+      tasaMensualPct: tasaMensual,
+      plazoMeses: plazoMeses,
+      frecuencia: form.frequency
+    });
 
     // Generar tabla de amortización con fechas
     const schedule: AmortizationSchedule[] = [];
     const startDate = new Date(form.startDate);
 
-    for (let i = 1; i <= totalCuotas; i++) {
+    for (let i = 1; i <= resultado.totalCuotas; i++) {
       const dueDate = calculateDueDate(startDate, i, form.frequency, form.preferredDay);
       
       schedule.push({
         installmentNumber: i,
         dueDate: dueDate.toISOString().split('T')[0],
-        amount: valorCuota
+        amount: resultado.valorCuota
       });
     }
 
     return {
-      porcentajeTotal,
-      interesTotalMonto,
-      totalAPagar,
-      totalCuotas,
-      valorCuota,
+      ...resultado,
       schedule
     };
   }, [form.amount, form.interestRate, form.termMonths, form.frequency, form.startDate, form.preferredDay]);
@@ -442,7 +457,7 @@ export default function LoansPage() {
             </div>
           </div>
 
-          {/* RESUMEN VISUAL - DESGLOSE EXACTO */}
+          {/* RESUMEN VISUAL - DESGLOSE EXACTO DEL MODELO EXCEL/VBA */}
           {form.amount && Number(form.amount) > 0 && (
             <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-5 border-2 border-purple-200">
               <h4 className="font-bold text-purple-900 mb-4 flex items-center gap-2 text-lg">
@@ -450,37 +465,37 @@ export default function LoansPage() {
               </h4>
               
               <div className="space-y-3">
-                {/* Monto */}
+                {/* Monto Sin Interés (Principal) */}
                 <div className="flex justify-between items-center py-2 border-b border-purple-100">
-                  <span className="text-sm font-medium text-gray-700">Monto:</span>
-                  <span className="text-lg font-bold text-gray-900">{formatCurrency(Number(form.amount))}</span>
+                  <span className="text-sm font-medium text-gray-700">Monto Sin Interés (Principal):</span>
+                  <span className="text-lg font-bold text-gray-900">{formatCurrency(calculation.montoSinInteres)}</span>
                 </div>
 
-                {/* Tasa Mensual */}
+                {/* Tasa */}
                 <div className="flex justify-between items-center py-2 border-b border-purple-100">
-                  <span className="text-sm font-medium text-gray-700">Tasa Mensual:</span>
+                  <span className="text-sm font-medium text-gray-700">Tasa:</span>
                   <span className="text-lg font-bold text-gray-900">
-                    {form.interestRate}% ({calculation.porcentajeTotal}% total en {form.termMonths} meses)
+                    {calculation.etiquetaTasa}
                   </span>
                 </div>
 
-                {/* Interés Total */}
+                {/* Interés Ganado */}
                 <div className="flex justify-between items-center py-2 border-b border-purple-100">
-                  <span className="text-sm font-medium text-gray-700">Interés Total:</span>
-                  <span className="text-lg font-bold text-green-600">{formatCurrency(calculation.interesTotalMonto)}</span>
+                  <span className="text-sm font-medium text-gray-700">Interés Ganado:</span>
+                  <span className="text-lg font-bold text-green-600">{formatCurrency(calculation.montoInteresTotal)}</span>
                 </div>
 
-                {/* TOTAL A PAGAR - DESTACADO */}
+                {/* MONTO CON INTERÉS (TOTAL A PAGAR) - DESTACADO */}
                 <div className="bg-white rounded-lg p-4 mt-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-base font-bold text-gray-900">Total a Pagar:</span>
-                    <span className="text-3xl font-bold text-purple-900">{formatCurrency(calculation.totalAPagar)}</span>
+                    <span className="text-base font-bold text-gray-900">Monto Con Interés (Total a Pagar):</span>
+                    <span className="text-3xl font-bold text-purple-900">{formatCurrency(calculation.montoConInteres)}</span>
                   </div>
                 </div>
 
                 {/* Plan de Pago */}
                 <div className="flex justify-between items-center py-2 bg-green-50 rounded-lg px-3">
-                  <span className="text-sm font-bold text-gray-700">Plan de Pago:</span>
+                  <span className="text-sm font-bold text-gray-700">Plan:</span>
                   <span className="text-base font-bold text-green-700">
                     [{calculation.totalCuotas} cuotas] de {formatCurrency(calculation.valorCuota)}
                   </span>
@@ -489,7 +504,7 @@ export default function LoansPage() {
                 {/* Texto Explicativo */}
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-3">
                   <p className="text-sm text-blue-900 font-medium">
-                    Cálculo: {form.interestRate}% mensual × {form.termMonths} meses = {calculation.porcentajeTotal}% total de interés.
+                    Fórmula: {formatCurrency(calculation.montoSinInteres)} × {form.interestRate}% × {form.termMonths} meses = {formatCurrency(calculation.montoInteresTotal)} de interés
                   </p>
                 </div>
               </div>
