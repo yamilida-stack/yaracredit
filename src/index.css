@@ -48,9 +48,60 @@
   animation: slideInRight 0.3s ease-out;
 }
 
-/* Print styles */
+/* Print styles - Ticket térmico 58mm/80mm */
 @media print {
-  .no-print { display: none !important; }
+  body * {
+    visibility: hidden;
+  }
+  
+  .receipt-print,
+  .receipt-print * {
+    visibility: visible;
+  }
+  
+  .receipt-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 58mm;
+    padding: 2mm;
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    line-height: 1.2;
+  }
+  
+  .receipt-print.receipt-80mm {
+    width: 80mm;
+    font-size: 12px;
+  }
+  
+  .no-print {
+    display: none !important;
+  }
+  
+  @page {
+    size: 58mm auto;
+    margin: 0;
+  }
+}
+
+/* Receipt preview styles */
+.receipt-preview {
+  font-family: 'Courier New', monospace;
+  background: white;
+  border: 2px dashed #d1d5db;
+}
+
+.receipt-preview.receipt-58mm {
+  width: 220px;
+  padding: 8px;
+  font-size: 11px;
+}
+
+.receipt-preview.receipt-80mm {
+  width: 300px;
+  padding: 12px;
+  font-size: 13px;
 }
 
 /* Mobile optimizations */

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../store';
 import { Modal, Button, Input, Select, Card, Badge, formatCurrency, formatDate } from '../components/ui';
+import ReceiptComponent from '../components/Receipt';
 import { Receipt, MapPin, Phone, CheckCircle, Printer, Send, DollarSign, Clock } from 'lucide-react';
 import type { PaymentMethod } from '../types';
 
@@ -73,12 +74,35 @@ export default function CollectionsPage() {
   };
 
   const handlePrint = () => {
-    addNotification('info', 'Enviando a impresora térmica Bluetooth...');
-    setTimeout(() => addNotification('success', 'Recibo enviado a impresora'), 1000);
+    window.print();
+    addNotification('success', 'Recibo enviado a impresora');
   };
 
-  const handleWhatsApp = (phone: string) => {
-    addNotification('success', `Recibo enviado por WhatsApp a ${phone}`);
+  const handleWhatsApp = (phone: string, paymentData: any) => {
+    if (!phone) {
+      addNotification('error', 'El cliente no tiene número de WhatsApp registrado');
+      return;
+    }
+
+    const { payment, loan, client, collector, remaining } = paymentData;
+    
+    // Generar mensaje formateado
+    const message = `*YARACREDIT - Recibo de Pago*%0A%0A` +
+      `*Recibo:* ${payment.receiptNumber}%0A` +
+      `*Fecha:* ${formatDate(payment.date)}%0A%0A` +
+      `*Cliente:* ${client?.fullName}%0A` +
+      `*Cédula:* ${client?.cedula}%0A%0A` +
+      `*Monto Pagado:* ${formatCurrency(payment.amount)}%0A` +
+      `*Método:* ${payment.method}%0A` +
+      `*Saldo Pendiente:* ${formatCurrency(remaining)}%0A%0A` +
+      `*Cobrador:* ${collector?.name}%0A%0A` +
+      `¡Gracias por su pago!`;
+
+    // Abrir WhatsApp con el mensaje
+    const whatsappUrl = `https://wa.me/${phone.replace(/\D/g, '')}?text=${message}`;
+    window.open(whatsappUrl, '_blank');
+    
+    addNotification('success', `Abriendo WhatsApp para enviar recibo a ${phone}`);
   };
 
   return (
@@ -213,26 +237,13 @@ export default function CollectionsPage() {
           return (
             <div>
               {/* Receipt preview */}
-              <div className={`border-2 border-dashed border-gray-300 rounded-xl p-4 ${thermalSize === '50mm' ? 'max-w-[200px] mx-auto' : 'max-w-[300px] mx-auto'} text-center font-mono text-xs`}>
-                <div className="border-b border-dashed border-gray-300 pb-2 mb-2">
-                  <p className="font-bold text-sm">YARACREDIT</p>
-                  <p>Sistema de Préstamos</p>
-                  <p>RNC: 000-00000-0</p>
-                </div>
-                <div className="text-left space-y-1">
-                  <p><strong>Recibo:</strong> {payment.receiptNumber}</p>
-                  <p><strong>Fecha:</strong> {formatDate(payment.date)}</p>
-                  <p><strong>Cliente:</strong> {client?.fullName}</p>
-                  <p><strong>Cédula:</strong> {client?.cedula}</p>
-                  <p><strong>Cobrador:</strong> {collector?.name}</p>
-                  <hr className="border-dashed border-gray-300 my-2" />
-                  <p><strong>Monto Pagado:</strong> {formatCurrency(payment.amount)}</p>
-                  <p><strong>Método:</strong> {payment.method}</p>
-                  <p><strong>Saldo Pendiente:</strong> {formatCurrency(remaining)}</p>
-                  <hr className="border-dashed border-gray-300 my-2" />
-                  <p className="text-center">¡Gracias por su pago!</p>
-                </div>
-              </div>
+              <ReceiptComponent 
+                payment={payment}
+                client={client}
+                collector={collector}
+                remaining={remaining}
+                thermalSize={thermalSize === '50mm' ? '58mm' : '80mm'}
+              />
 
               {/* Actions */}
               <div className="mt-4 space-y-3">
@@ -245,8 +256,8 @@ export default function CollectionsPage() {
                   <Button variant="outline" size="sm" className="flex-1" onClick={handlePrint}>
                     <Printer size={14} /> Imprimir
                   </Button>
-                  <Button variant="outline" size="sm" className="flex-1" onClick={() => handleWhatsApp(client?.whatsapp || client?.phone || '')}>
-                    <Send size={14} /> WhatsApp
+                  <Button variant="outline" size="sm" className="flex-1" onClick={() => handleWhatsApp(client?.whatsapp || client?.phone || '', data)}>
+                    <Send size={14} /> Compartir por WhatsApp
                   </Button>
                 </div>
               </div>
