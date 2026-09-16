@@ -37,26 +37,44 @@ const seedArticles: Article[] = [
 // Calculate loan installments - INTERÉS SIMPLE MENSUAL FIJO
 function calculateInstallment(amount: number, interestRate: number, term: number, type: LoanType): number {
   // FÓRMULA EXACTA:
-  const porcentajeTotal = interestRate * term; // Ej: 15 * 3 = 45
-  const montoInteres = amount * (porcentajeTotal / 100); // Ej: 10000 * 0.45 = 4500
-  const totalAPagar = amount + montoInteres; // Ej: 10000 + 4500 = 14500
+  const plazo = Number(term);
+  const interesMensual = Number(interestRate);
+  const principal = Number(amount);
 
-  // Determinación del número total de cuotas según la frecuencia
-  let numeroCuotas = 0;
-  if (type === 'semanal') numeroCuotas = term * 4;
-  if (type === 'quincenal') numeroCuotas = term * 2;
-  if (type === 'mensual') numeroCuotas = term;
+  // 1. Porcentaje Total = Interés Mensual * Plazo en Meses
+  const porcentajeTotal = interesMensual * plazo;
 
-  const valorCuota = totalAPagar / numeroCuotas;
+  // 2. Ganancia de Interés (C$) = Principal * (Porcentaje Total / 100)
+  const montoInteresTotal = principal * (porcentajeTotal / 100);
+
+  // 3. Total a Pagar = Principal + Ganancia de Interés
+  const totalAPagar = principal + montoInteresTotal;
+
+  // 4. Cantidad de Cuotas según Frecuencia
+  let totalCuotas = plazo;
+  if (type === 'semanal') totalCuotas = plazo * 4;
+  if (type === 'quincenal') totalCuotas = plazo * 2;
+  // Si es mensual, totalCuotas ya es igual a plazo
+
+  // 5. Valor de cada Cuota
+  const valorCuota = totalAPagar / totalCuotas;
   
   return Math.ceil(valorCuota);
 }
 
 function calculateTotalInterest(amount: number, interestRate: number, term: number): number {
   // FÓRMULA EXACTA:
-  const porcentajeTotal = interestRate * term;
-  const montoInteres = amount * (porcentajeTotal / 100);
-  return montoInteres;
+  const plazo = Number(term);
+  const interesMensual = Number(interestRate);
+  const principal = Number(amount);
+
+  // 1. Porcentaje Total = Interés Mensual * Plazo en Meses
+  const porcentajeTotal = interesMensual * plazo;
+
+  // 2. Ganancia de Interés (C$) = Principal * (Porcentaje Total / 100)
+  const montoInteresTotal = principal * (porcentajeTotal / 100);
+
+  return montoInteresTotal;
 }
 
 const seedLoans: Loan[] = [
