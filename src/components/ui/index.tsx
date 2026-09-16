@@ -214,7 +214,7 @@ export function EmptyState({ icon, title, description, action }: { icon: React.R
 
 // ==================== FORMAT HELPERS ====================
 export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' }).format(amount);
+  return `C$ ${amount.toLocaleString('es-NI', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export function formatDate(date: string): string {

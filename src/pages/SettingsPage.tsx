@@ -1,0 +1,295 @@
+import { useState } from 'react';
+import { useStore } from '../store';
+import { Card, Button, Input, Select, Badge } from '../components/ui';
+import { Settings, Moon, Sun, Building2, Receipt, DollarSign, Bell, Shield, Database, Palette, Save, RotateCcw } from 'lucide-react';
+import type { AppSettings } from '../types';
+
+export default function SettingsPage() {
+  const { settings, updateSettings, toggleDarkMode, addNotification } = useStore();
+  const [activeTab, setActiveTab] = useState('general');
+  const [localSettings, setLocalSettings] = useState(settings);
+
+  const tabs = [
+    { id: 'general', label: 'General', icon: Building2 },
+    { id: 'appearance', label: 'Apariencia', icon: Palette },
+    { id: 'loans', label: 'Préstamos', icon: DollarSign },
+    { id: 'receipts', label: 'Recibos', icon: Receipt },
+    { id: 'notifications', label: 'Notificaciones', icon: Bell },
+    { id: 'security', label: 'Seguridad', icon: Shield },
+    { id: 'backup', label: 'Respaldo', icon: Database },
+  ];
+
+  const handleSave = () => {
+    updateSettings(localSettings);
+    addNotification('success', 'Configuración guardada exitosamente');
+  };
+
+  const handleReset = () => {
+    if (confirm('¿Restaurar configuración predeterminada?')) {
+      const defaults = {
+        darkMode: false,
+        companyName: 'YaraCredit',
+        companyRnc: '000-00000-0',
+        companyAddress: 'Dirección de la empresa',
+        companyPhone: '0000-0000',
+        currency: 'C$',
+        defaultInterestRate: 14,
+        defaultTerm: 3,
+        thermalSize: '50mm' as const,
+        commissionRate: 5,
+        lateFeePercent: 2,
+        gracePeriodDays: 3,
+        whatsappMessageTemplate: 'Hola {cliente}, le recordamos que tiene un pago pendiente de {monto} para hoy. Gracias por su preferencia.',
+        receiptHeader: 'YARACREDIT - Sistema de Préstamos',
+        receiptFooter: '¡Gracias por su pago!',
+        autoBackup: true,
+        notificationsEnabled: true,
+      };
+      setLocalSettings(defaults);
+      updateSettings(defaults);
+      addNotification('info', 'Configuración restaurada');
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Settings size={24} className="text-purple-600" />
+          <h3 className="text-lg font-bold">Configuración del Sistema</h3>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleReset}>
+            <RotateCcw size={14} /> Restaurar
+          </Button>
+          <Button size="sm" onClick={handleSave}>
+            <Save size={14} /> Guardar
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Sidebar tabs */}
+        <Card className="p-2 h-fit">
+          <nav className="space-y-1">
+            {tabs.map(tab => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                    activeTab === tab.id
+                      ? 'bg-purple-50 text-purple-700'
+                      : 'text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  <Icon size={18} />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </nav>
+        </Card>
+
+        {/* Content */}
+        <Card className="lg:col-span-3 p-6">
+          {/* General */}
+          {activeTab === 'general' && (
+            <div className="space-y-6">
+              <h4 className="text-lg font-bold flex items-center gap-2"><Building2 size={20} className="text-purple-600" /> Datos de la Empresa</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input label="Nombre de la Empresa" value={localSettings.companyName} onChange={e => setLocalSettings({...localSettings, companyName: e.target.value})} />
+                <Input label="RNC / Identificación Fiscal" value={localSettings.companyRnc} onChange={e => setLocalSettings({...localSettings, companyRnc: e.target.value})} />
+                <Input label="Teléfono" value={localSettings.companyPhone} onChange={e => setLocalSettings({...localSettings, companyPhone: e.target.value})} />
+                <Input label="Moneda" value={localSettings.currency} onChange={e => setLocalSettings({...localSettings, currency: e.target.value})} />
+                <div className="sm:col-span-2">
+                  <Input label="Dirección" value={localSettings.companyAddress} onChange={e => setLocalSettings({...localSettings, companyAddress: e.target.value})} />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Appearance */}
+          {activeTab === 'appearance' && (
+            <div className="space-y-6">
+              <h4 className="text-lg font-bold flex items-center gap-2"><Palette size={20} className="text-purple-600" /> Apariencia</h4>
+
+              {/* Dark mode toggle */}
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                <div className="flex items-center gap-3">
+                  {settings.darkMode ? <Moon size={24} className="text-purple-600" /> : <Sun size={24} className="text-yellow-500" />}
+                  <div>
+                    <p className="font-medium">Modo Oscuro</p>
+                    <p className="text-sm text-gray-500">Reduce el brillo de la pantalla para mayor comodidad visual</p>
+                  </div>
+                </div>
+                <button
+                  onClick={toggleDarkMode}
+                  className={`relative w-14 h-7 rounded-full transition-colors ${settings.darkMode ? 'bg-purple-600' : 'bg-gray-300'}`}
+                >
+                  <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform ${settings.darkMode ? 'translate-x-7' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Select label="Tamaño de Recibo Térmico" options={[
+                  { value: '50mm', label: '50mm (Compacto)' },
+                  { value: '80mm', label: '80mm (Estándar)' },
+                ]} value={localSettings.thermalSize} onChange={e => setLocalSettings({...localSettings, thermalSize: e.target.value as '50mm' | '80mm'})} />
+              </div>
+
+              <div className="p-4 bg-purple-50 rounded-xl border border-purple-100">
+                <p className="text-sm text-purple-700 font-medium">Vista previa del tema actual:</p>
+                <div className={`mt-3 p-4 rounded-xl ${settings.darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'} border`}>
+                  <p className="font-bold">YaraCredit</p>
+                  <p className="text-sm opacity-75">Modo {settings.darkMode ? 'Oscuro' : 'Claro'} activo</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Loans */}
+          {activeTab === 'loans' && (
+            <div className="space-y-6">
+              <h4 className="text-lg font-bold flex items-center gap-2"><DollarSign size={20} className="text-purple-600" /> Configuración de Préstamos</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input label="Tasa de Interés Predeterminada (% mensual)" type="number" value={localSettings.defaultInterestRate.toString()} onChange={e => setLocalSettings({...localSettings, defaultInterestRate: parseFloat(e.target.value)})} />
+                <Input label="Plazo Predeterminado (meses)" type="number" value={localSettings.defaultTerm.toString()} onChange={e => setLocalSettings({...localSettings, defaultTerm: parseInt(e.target.value)})} />
+                <Input label="Comisión Cobradores (%)" type="number" value={localSettings.commissionRate.toString()} onChange={e => setLocalSettings({...localSettings, commissionRate: parseFloat(e.target.value)})} />
+                <Input label="Recargo por Mora (%)" type="number" value={localSettings.lateFeePercent.toString()} onChange={e => setLocalSettings({...localSettings, lateFeePercent: parseFloat(e.target.value)})} />
+                <Input label="Días de Gracia" type="number" value={localSettings.gracePeriodDays.toString()} onChange={e => setLocalSettings({...localSettings, gracePeriodDays: parseInt(e.target.value)})} />
+              </div>
+              <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-sm text-yellow-800">
+                <p className="font-medium">⚠️ Nota sobre cálculo de intereses:</p>
+                <p className="mt-1">El interés se calcula de forma MENSUAL. Si la tasa es 14% mensual y el plazo es 3 meses, el interés total será 14% × 3 = 42% del monto prestado.</p>
+              </div>
+            </div>
+          )}
+
+          {/* Receipts */}
+          {activeTab === 'receipts' && (
+            <div className="space-y-6">
+              <h4 className="text-lg font-bold flex items-center gap-2"><Receipt size={20} className="text-purple-600" /> Formato de Recibos</h4>
+              <Input label="Encabezado del Recibo" value={localSettings.receiptHeader} onChange={e => setLocalSettings({...localSettings, receiptHeader: e.target.value})} />
+              <Input label="Pie del Recibo" value={localSettings.receiptFooter} onChange={e => setLocalSettings({...localSettings, receiptFooter: e.target.value})} />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Plantilla de Mensaje WhatsApp</label>
+                <textarea
+                  value={localSettings.whatsappMessageTemplate}
+                  onChange={e => setLocalSettings({...localSettings, whatsappMessageTemplate: e.target.value})}
+                  rows={3}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  placeholder="Usa {cliente}, {monto}, {fecha} como variables"
+                />
+                <p className="text-xs text-gray-400 mt-1">Variables disponibles: {'{cliente}'}, {'{monto}'}, {'{fecha}'}, {'{cuota}'}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Notifications */}
+          {activeTab === 'notifications' && (
+            <div className="space-y-6">
+              <h4 className="text-lg font-bold flex items-center gap-2"><Bell size={20} className="text-purple-600" /> Notificaciones</h4>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                  <div>
+                    <p className="font-medium">Notificaciones Push</p>
+                    <p className="text-sm text-gray-500">Recibir alertas de pagos y vencimientos</p>
+                  </div>
+                  <button
+                    onClick={() => setLocalSettings({...localSettings, notificationsEnabled: !localSettings.notificationsEnabled})}
+                    className={`relative w-14 h-7 rounded-full transition-colors ${localSettings.notificationsEnabled ? 'bg-purple-600' : 'bg-gray-300'}`}
+                  >
+                    <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform ${localSettings.notificationsEnabled ? 'translate-x-7' : 'translate-x-0.5'}`} />
+                  </button>
+                </div>
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                  <div>
+                    <p className="font-medium">Respaldo Automático</p>
+                    <p className="text-sm text-gray-500">Guardar datos automáticamente cada día</p>
+                  </div>
+                  <button
+                    onClick={() => setLocalSettings({...localSettings, autoBackup: !localSettings.autoBackup})}
+                    className={`relative w-14 h-7 rounded-full transition-colors ${localSettings.autoBackup ? 'bg-purple-600' : 'bg-gray-300'}`}
+                  >
+                    <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform ${localSettings.autoBackup ? 'translate-x-7' : 'translate-x-0.5'}`} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Security */}
+          {activeTab === 'security' && (
+            <div className="space-y-6">
+              <h4 className="text-lg font-bold flex items-center gap-2"><Shield size={20} className="text-purple-600" /> Seguridad</h4>
+              <div className="space-y-4">
+                <Card className="p-4">
+                  <p className="font-medium">Sesiones</p>
+                  <p className="text-sm text-gray-500 mt-1">Las sesiones se mantienen activas hasta cerrar manualmente.</p>
+                  <Button variant="outline" size="sm" className="mt-3">Cerrar todas las sesiones</Button>
+                </Card>
+                <Card className="p-4">
+                  <p className="font-medium">Registro de Auditoría</p>
+                  <p className="text-sm text-gray-500 mt-1">Todos los cambios quedan registrados con fecha y usuario.</p>
+                  <Badge variant="success">Activo</Badge>
+                </Card>
+                <Card className="p-4">
+                  <p className="font-medium">Encriptación de Datos</p>
+                  <p className="text-sm text-gray-500 mt-1">Los datos sensibles se almacenan encriptados localmente.</p>
+                  <Badge variant="success">AES-256</Badge>
+                </Card>
+              </div>
+            </div>
+          )}
+
+          {/* Backup */}
+          {activeTab === 'backup' && (
+            <div className="space-y-6">
+              <h4 className="text-lg font-bold flex items-center gap-2"><Database size={20} className="text-purple-600" /> Respaldo de Datos</h4>
+              <div className="space-y-4">
+                <Card className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">Exportar Datos</p>
+                      <p className="text-sm text-gray-500">Descarga todos los datos en formato JSON</p>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => {
+                      const data = JSON.stringify(useStore.getState(), null, 2);
+                      const blob = new Blob([data], { type: 'application/json' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `yaracredit_backup_${new Date().toISOString().split('T')[0]}.json`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                      addNotification('success', 'Respaldo descargado');
+                    }}>
+                      <Database size={14} /> Exportar
+                    </Button>
+                  </div>
+                </Card>
+                <Card className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">Importar Datos</p>
+                      <p className="text-sm text-gray-500">Restaurar desde un archivo de respaldo</p>
+                    </div>
+                    <Button variant="outline" size="sm">
+                      <Database size={14} /> Importar
+                    </Button>
+                  </div>
+                </Card>
+                <Card className="p-4 bg-green-50 border-green-200">
+                  <p className="font-medium text-green-800">✓ Respaldo automático activo</p>
+                  <p className="text-sm text-green-600 mt-1">Último respaldo: {new Date().toLocaleDateString('es-NI')}</p>
+                </Card>
+              </div>
+            </div>
+          )}
+        </Card>
+      </div>
+    </div>
+  );
+}

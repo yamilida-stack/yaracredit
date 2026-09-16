@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type {
   User, Client, Loan, Payment, Article, CashMovement, CashRegister,
   Route, Payroll, Notification, Role, LoanType, LoanModality,
-  LoanStatus, PaymentMethod, ExpenseCategory
+  LoanStatus, PaymentMethod, ExpenseCategory, AppSettings
 } from '../types';
 
 // ==================== SEED DATA ====================
@@ -26,16 +26,19 @@ const seedClients: Client[] = [
 ];
 
 const seedArticles: Article[] = [
-  { id: 'a1', name: 'Refrigerador Samsung 12ft', description: 'Refrigerador no frost 12 pies cúbicos', category: 'Electrodomésticos', costPrice: 25000, salePrice: 35000, quantity: 3, minStock: 2, createdAt: '2024-01-01' },
-  { id: 'a2', name: 'Lavadora LG 22lb', description: 'Lavadora automática 22 libras', category: 'Electrodomésticos', costPrice: 18000, salePrice: 26000, quantity: 5, minStock: 2, createdAt: '2024-01-01' },
-  { id: 'a3', name: 'Smart TV 55"', description: 'Smart TV LED 55 pulgadas 4K', category: 'Electrónica', costPrice: 22000, salePrice: 32000, quantity: 4, minStock: 2, createdAt: '2024-01-05' },
-  { id: 'a4', name: 'Aire Acondicionado 12000BTU', description: 'Mini split inverter 12000 BTU', category: 'Electrodomésticos', costPrice: 28000, salePrice: 40000, quantity: 2, minStock: 1, createdAt: '2024-01-10' },
-  { id: 'a5', name: 'Motocicleta Italika 150cc', description: 'Motocicleta nueva 150cc', category: 'Vehículos', costPrice: 65000, salePrice: 85000, quantity: 1, minStock: 1, createdAt: '2024-02-01' },
+  { id: 'a1', name: 'Refrigerador Samsung 12ft', description: 'Refrigerador no frost 12 pies cúbicos', category: 'Electrodomésticos', costPrice: 25000, salePrice: 35000, quantity: 3, minStock: 2, brand: 'Samsung', model: 'RT12M333ES8', serialNumber: 'SAM-2024-001', createdAt: '2024-01-01' },
+  { id: 'a2', name: 'Lavadora LG 22lb', description: 'Lavadora automática 22 libras', category: 'Electrodomésticos', costPrice: 18000, salePrice: 26000, quantity: 5, minStock: 2, brand: 'LG', model: 'WT22V', serialNumber: 'LG-2024-045', createdAt: '2024-01-01' },
+  { id: 'a3', name: 'Smart TV 55"', description: 'Smart TV LED 55 pulgadas 4K', category: 'Electrónica', costPrice: 22000, salePrice: 32000, quantity: 4, minStock: 2, brand: 'TCL', model: '55P615', serialNumber: 'TCL-2024-112', createdAt: '2024-01-05' },
+  { id: 'a4', name: 'Aire Acondicionado 12000BTU', description: 'Mini split inverter 12000 BTU', category: 'Electrodomésticos', costPrice: 28000, salePrice: 40000, quantity: 2, minStock: 1, brand: 'Midea', model: 'MSAGBU-12', serialNumber: 'MID-2024-008', createdAt: '2024-01-10' },
+  { id: 'a5', name: 'Motocicleta Italika 150cc', description: 'Motocicleta nueva 150cc', category: 'Vehículos', costPrice: 65000, salePrice: 85000, quantity: 1, minStock: 1, brand: 'Italika', model: 'FT150', serialNumber: 'ITA-2024-001', imei: '353456789012345', createdAt: '2024-02-01' },
+  { id: 'a6', name: 'iPhone 13 128GB', description: 'iPhone 13 nuevo sellado', category: 'Electrónica', costPrice: 35000, salePrice: 48000, quantity: 2, minStock: 1, brand: 'Apple', model: 'iPhone 13', serialNumber: 'APL-2024-567', imei: '356789012345678', createdAt: '2024-02-15' },
 ];
 
-// Calculate loan installments
+// Calculate loan installments - Interés MENSUAL
 function calculateInstallment(amount: number, interestRate: number, term: number, type: LoanType): number {
-  const totalInterest = amount * (interestRate / 100) * (term / 12);
+  // interestRate es el % MENSUAL
+  // Si son 3 meses al 14%, el interés total es 14% * 3 = 42%
+  const totalInterest = amount * (interestRate / 100) * term;
   const totalAmount = amount + totalInterest;
   let installments = term;
   if (type === 'semanal') installments = term * 4;
@@ -44,7 +47,8 @@ function calculateInstallment(amount: number, interestRate: number, term: number
 }
 
 function calculateTotalInterest(amount: number, interestRate: number, term: number): number {
-  return amount * (interestRate / 100) * (term / 12);
+  // Interés mensual * número de meses
+  return amount * (interestRate / 100) * term;
 }
 
 const seedLoans: Loan[] = [
@@ -169,6 +173,11 @@ interface AppState {
   notifications: Notification[];
   addNotification: (type: Notification['type'], message: string) => void;
   removeNotification: (id: string) => void;
+
+  // Settings
+  settings: AppSettings;
+  updateSettings: (settings: Partial<AppSettings>) => void;
+  toggleDarkMode: () => void;
 
   // Helpers
   getClientsByCollector: (collectorId: string) => Client[];
@@ -353,6 +362,39 @@ export const useStore = create<AppState>()(
       removeNotification: (id) => set(state => ({
         notifications: state.notifications.filter(n => n.id !== id)
       })),
+
+      // Settings
+      settings: {
+        darkMode: false,
+        companyName: 'YaraCredit',
+        companyRnc: '000-00000-0',
+        companyAddress: 'Dirección de la empresa',
+        companyPhone: '0000-0000',
+        currency: 'C$',
+        defaultInterestRate: 14,
+        defaultTerm: 3,
+        thermalSize: '50mm',
+        commissionRate: 5,
+        lateFeePercent: 2,
+        gracePeriodDays: 3,
+        whatsappMessageTemplate: 'Hola {cliente}, le recordamos que tiene un pago pendiente de {monto} para hoy. Gracias por su preferencia.',
+        receiptHeader: 'YARACREDIT - Sistema de Préstamos',
+        receiptFooter: '¡Gracias por su pago!',
+        autoBackup: true,
+        notificationsEnabled: true,
+      },
+      updateSettings: (newSettings) => set(state => ({
+        settings: { ...state.settings, ...newSettings }
+      })),
+      toggleDarkMode: () => set(state => {
+        const newDarkMode = !state.settings.darkMode;
+        if (newDarkMode) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+        return { settings: { ...state.settings, darkMode: newDarkMode } };
+      }),
 
       // Helpers
       getClientsByCollector: (collectorId) => {

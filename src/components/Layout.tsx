@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useStore } from '../store';
 import {
   LayoutDashboard, Users, DollarSign, Package, Receipt, FileText,
-  Wallet, UserCog, BarChart3, Route, LogOut, Menu, X, Bell, Wifi, WifiOff
+  Wallet, UserCog, BarChart3, Route, LogOut, Menu, X, Bell, Wifi, WifiOff, Settings, Shield
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -16,6 +16,8 @@ const navItems = [
   { id: 'clients', label: 'Clientes', icon: Users, roles: ['admin', 'gerente', 'cobrador', 'solo_lectura'] },
   { id: 'loans', label: 'Préstamos', icon: DollarSign, roles: ['admin', 'gerente', 'cobrador', 'solo_lectura'] },
   { id: 'collections', label: 'Cobros', icon: Receipt, roles: ['admin', 'gerente', 'cobrador'] },
+  { id: 'financed-devices', label: 'Dispositivos', icon: Package, roles: ['admin', 'gerente', 'cobrador'] },
+  { id: 'risk-score', label: 'Score Riesgo', icon: Shield, roles: ['admin', 'gerente'] },
   { id: 'routes', label: 'Rutas', icon: Route, roles: ['admin', 'gerente'] },
   { id: 'stock', label: 'Stock', icon: Package, roles: ['admin', 'gerente', 'solo_lectura'] },
   { id: 'cash', label: 'Caja', icon: Wallet, roles: ['admin', 'gerente'] },
@@ -23,6 +25,7 @@ const navItems = [
   { id: 'payroll', label: 'Planilla', icon: UserCog, roles: ['admin', 'gerente'] },
   { id: 'reports', label: 'Reportes', icon: BarChart3, roles: ['admin', 'gerente', 'solo_lectura'] },
   { id: 'users', label: 'Usuarios', icon: Users, roles: ['admin'] },
+  { id: 'settings', label: 'Configuración', icon: Settings, roles: ['admin', 'gerente'] },
 ];
 
 export default function Layout({ children, currentPage, onNavigate }: LayoutProps) {

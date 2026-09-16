@@ -11,7 +11,7 @@ export default function ClientsPage() {
   const [showDetail, setShowDetail] = useState<Client | null>(null);
   const [editing, setEditing] = useState<Client | null>(null);
   const [form, setForm] = useState({
-    fullName: '', cedula: '', address: '', phone: '', whatsapp: '', email: '', guarantor: '', guarantorPhone: '', lat: '', lng: ''
+    fullName: '', cedula: '', address: '', phone: '', whatsapp: '', email: '', guarantor: '', guarantorPhone: '', lat: '', lng: '', occupation: '', monthlyIncome: '', references: '', observations: ''
   });
 
   const filtered = clients.filter(c =>
@@ -21,7 +21,7 @@ export default function ClientsPage() {
   );
 
   const openCreate = () => {
-    setForm({ fullName: '', cedula: '', address: '', phone: '', whatsapp: '', email: '', guarantor: '', guarantorPhone: '', lat: '', lng: '' });
+    setForm({ fullName: '', cedula: '', address: '', phone: '', whatsapp: '', email: '', guarantor: '', guarantorPhone: '', lat: '', lng: '', occupation: '', monthlyIncome: '', references: '', observations: '' });
     setEditing(null);
     setShowModal(true);
   };
@@ -31,7 +31,9 @@ export default function ClientsPage() {
       fullName: client.fullName, cedula: client.cedula, address: client.address,
       phone: client.phone, whatsapp: client.whatsapp, email: client.email || '',
       guarantor: client.guarantor || '', guarantorPhone: client.guarantorPhone || '',
-      lat: client.lat?.toString() || '', lng: client.lng?.toString() || ''
+      lat: client.lat?.toString() || '', lng: client.lng?.toString() || '',
+      occupation: client.occupation || '', monthlyIncome: client.monthlyIncome?.toString() || '',
+      references: client.references || '', observations: client.observations || ''
     });
     setEditing(client);
     setShowModal(true);
@@ -50,6 +52,10 @@ export default function ClientsPage() {
       guarantorPhone: form.guarantorPhone || undefined,
       lat: form.lat ? parseFloat(form.lat) : undefined,
       lng: form.lng ? parseFloat(form.lng) : undefined,
+      occupation: form.occupation || undefined,
+      monthlyIncome: form.monthlyIncome ? parseFloat(form.monthlyIncome) : undefined,
+      references: form.references || undefined,
+      observations: form.observations || undefined,
     };
     if (editing) {
       updateClient(editing.id, data);
@@ -186,8 +192,23 @@ export default function ClientsPage() {
             <Input label="Dirección" value={form.address} onChange={e => setForm({...form, address: e.target.value})} placeholder="Calle, Sector, Ciudad" />
             <Input label="Fiador/Garante" value={form.guarantor} onChange={e => setForm({...form, guarantor: e.target.value})} placeholder="Nombre del garante" />
             <Input label="Tel. Garante" value={form.guarantorPhone} onChange={e => setForm({...form, guarantorPhone: e.target.value})} placeholder="809-555-0000" />
+            <Input label="Ocupación" value={form.occupation} onChange={e => setForm({...form, occupation: e.target.value})} placeholder="Ej: Comerciante, Empleado..." />
+            <Input label="Ingreso Mensual (C$)" value={form.monthlyIncome} onChange={e => setForm({...form, monthlyIncome: e.target.value})} type="number" placeholder="15000" />
             <Input label="Latitud GPS" value={form.lat} onChange={e => setForm({...form, lat: e.target.value})} placeholder="18.4861" type="number" step="any" />
             <Input label="Longitud GPS" value={form.lng} onChange={e => setForm({...form, lng: e.target.value})} placeholder="-69.9312" type="number" step="any" />
+            <div className="sm:col-span-2">
+              <Input label="Referencias" value={form.references} onChange={e => setForm({...form, references: e.target.value})} placeholder="Personas que pueden referenciar al cliente" />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Observaciones</label>
+              <textarea
+                value={form.observations}
+                onChange={e => setForm({...form, observations: e.target.value})}
+                rows={2}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                placeholder="Notas sobre el cliente, historial, comportamiento de pago..."
+              />
+            </div>
           </div>
           <div className="flex justify-end gap-3 pt-4 border-t">
             <Button variant="secondary" type="button" onClick={() => setShowModal(false)}>Cancelar</Button>

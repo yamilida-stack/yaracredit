@@ -12,7 +12,7 @@ export default function LoansPage() {
   const [showDetail, setShowDetail] = useState<Loan | null>(null);
   const [form, setForm] = useState({
     clientId: '', type: 'semanal' as LoanType, modality: 'efectivo' as LoanModality,
-    amount: '', term: '3', interestRate: '45', assignedCollector: '', articleId: '', guarantees: ''
+    amount: '', term: '3', interestRate: '14', assignedCollector: '', articleId: '', guarantees: '', observations: '', purpose: ''
   });
 
   const filtered = useMemo(() => {
@@ -40,7 +40,7 @@ export default function LoansPage() {
   }, [form.amount, form.interestRate, form.term, form.type]);
 
   const openCreate = () => {
-    setForm({ clientId: '', type: 'semanal', modality: 'efectivo', amount: '', term: '3', interestRate: '45', assignedCollector: '', articleId: '', guarantees: '' });
+    setForm({ clientId: '', type: 'semanal', modality: 'efectivo', amount: '', term: '3', interestRate: '14', assignedCollector: '', articleId: '', guarantees: '', observations: '', purpose: '' });
     setShowModal(true);
   };
 
@@ -62,6 +62,8 @@ export default function LoansPage() {
       assignedCollector: form.assignedCollector || undefined,
       articleId: form.modality === 'articulo' ? form.articleId || undefined : undefined,
       guarantees: form.guarantees ? [form.guarantees] : undefined,
+      observations: form.observations || undefined,
+      purpose: form.purpose || undefined,
     });
     addNotification('success', 'Préstamo creado exitosamente');
     setShowModal(false);
@@ -191,6 +193,17 @@ export default function LoansPage() {
               </div>
             )}
             <Input label="Garantías (descripción)" value={form.guarantees} onChange={e => setForm({...form, guarantees: e.target.value})} placeholder="Ej: Cédula original, Título de propiedad..." />
+            <Input label="Propósito del Préstamo" value={form.purpose} onChange={e => setForm({...form, purpose: e.target.value})} placeholder="Ej: Compra de muebles, Gastos médicos..." />
+            <div className="sm:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Observaciones</label>
+              <textarea
+                value={form.observations}
+                onChange={e => setForm({...form, observations: e.target.value})}
+                rows={2}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                placeholder="Notas adicionales sobre este préstamo..."
+              />
+            </div>
           </div>
 
           {/* Preview */}
@@ -201,11 +214,14 @@ export default function LoansPage() {
               </h4>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
                 <div><p className="text-purple-600">Monto</p><p className="font-bold text-lg">{formatCurrency(parseFloat(form.amount) || 0)}</p></div>
-                <div><p className="text-purple-600">Interés Total</p><p className="font-bold text-lg">{formatCurrency(preview.totalInterest)}</p></div>
+                <div><p className="text-purple-600">Interés Mensual</p><p className="font-bold text-lg">{form.interestRate}%</p></div>
+                <div><p className="text-purple-600">Interés Total ({form.term} meses)</p><p className="font-bold text-lg">{formatCurrency(preview.totalInterest)}</p></div>
                 <div><p className="text-purple-600">Total a Pagar</p><p className="font-bold text-lg">{formatCurrency(preview.totalAmount)}</p></div>
-                <div><p className="text-purple-600">Cuota ({form.type})</p><p className="font-bold text-lg text-green-700">{formatCurrency(preview.installmentAmount)}</p></div>
               </div>
-              <p className="text-xs text-purple-500 mt-2">{preview.installments} cuotas de {formatCurrency(preview.installmentAmount)}</p>
+              <div className="mt-3 pt-3 border-t border-purple-200">
+                <p className="text-sm text-purple-700 font-medium">{preview.installments} cuotas de <span className="text-lg font-bold text-green-700">{formatCurrency(preview.installmentAmount)}</span></p>
+                <p className="text-xs text-purple-500 mt-1">Cálculo: {form.interestRate}% mensual × {form.term} meses = {parseFloat(form.interestRate) * parseInt(form.term)}% total</p>
+              </div>
             </div>
           )}
 

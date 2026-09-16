@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useStore } from './store';
 import Layout from './components/Layout';
 import { ToastContainer } from './components/ui';
@@ -14,10 +14,22 @@ import ContractsPage from './pages/ContractsPage';
 import PayrollPage from './pages/PayrollPage';
 import ReportsPage from './pages/ReportsPage';
 import UsersPage from './pages/UsersPage';
+import SettingsPage from './pages/SettingsPage';
+import FinancedDevicesPage from './pages/FinancedDevicesPage';
+import RiskScorePage from './pages/RiskScorePage';
 
 function App() {
-  const { currentUser, notifications, removeNotification } = useStore();
+  const { currentUser, notifications, removeNotification, settings } = useStore();
   const [currentPage, setCurrentPage] = useState('dashboard');
+
+  // Apply dark mode
+  useEffect(() => {
+    if (settings.darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [settings.darkMode]);
 
   // Not logged in
   if (!currentUser) {
@@ -42,17 +54,20 @@ function App() {
       case 'payroll': return <PayrollPage />;
       case 'reports': return <ReportsPage />;
       case 'users': return <UsersPage />;
+      case 'settings': return <SettingsPage />;
+      case 'financed-devices': return <FinancedDevicesPage />;
+      case 'risk-score': return <RiskScorePage />;
       default: return <DashboardPage />;
     }
   };
 
   return (
-    <>
+    <div className={settings.darkMode ? 'dark' : ''}>
       <Layout currentPage={currentPage} onNavigate={setCurrentPage}>
         {renderPage()}
       </Layout>
       <ToastContainer notifications={notifications} onRemove={removeNotification} />
-    </>
+    </div>
   );
 }
 

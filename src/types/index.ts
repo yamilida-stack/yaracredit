@@ -23,6 +23,11 @@ export interface Client {
   guarantorPhone?: string;
   lat?: number;
   lng?: number;
+  occupation?: string;
+  monthlyIncome?: number;
+  references?: string;
+  observations?: string;
+  riskLevel?: 'bajo' | 'medio' | 'alto';
   createdAt: string;
   notes?: string;
 }
@@ -44,11 +49,16 @@ export interface Loan {
   totalAmount: number;
   totalInterest: number;
   startDate: string;
+  endDate?: string;
   status: LoanStatus;
   assignedCollector?: string;
   articleId?: string;
+  articleSerial?: string;
   guarantees?: string[];
   payments: Payment[];
+  observations?: string;
+  purpose?: string;
+  lateFeeApplied?: number;
   createdAt: string;
   notes?: string;
 }
@@ -81,7 +91,34 @@ export interface Article {
   salePrice: number;
   quantity: number;
   minStock: number;
+  serialNumber?: string;
+  imei?: string;
+  brand?: string;
+  model?: string;
+  observations?: string;
   createdAt: string;
+}
+
+// ==================== CONFIG ====================
+export interface AppSettings {
+  darkMode: boolean;
+  companyName: string;
+  companyRnc: string;
+  companyAddress: string;
+  companyPhone: string;
+  companyLogo?: string;
+  currency: string;
+  defaultInterestRate: number;
+  defaultTerm: number;
+  thermalSize: '50mm' | '80mm';
+  commissionRate: number;
+  lateFeePercent: number;
+  gracePeriodDays: number;
+  whatsappMessageTemplate: string;
+  receiptHeader: string;
+  receiptFooter: string;
+  autoBackup: boolean;
+  notificationsEnabled: boolean;
 }
 
 // ==================== CAJA ====================
