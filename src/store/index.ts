@@ -34,47 +34,59 @@ const seedArticles: Article[] = [
   { id: 'a6', name: 'iPhone 13 128GB', description: 'iPhone 13 nuevo sellado', category: 'Electrónica', costPrice: 35000, salePrice: 48000, quantity: 2, minStock: 1, brand: 'Apple', model: 'iPhone 13', serialNumber: 'APL-2024-567', imei: '356789012345678', createdAt: '2024-02-15' },
 ];
 
+// --- FUNCIÓN DE CÁLCULO EXACTA PROPORCIONADA ---
+function calcularPrestamo(monto: number, meses: number, tasaMensual: number) {
+  // 1. Convertir a números
+  const principal = Number(monto) || 0;
+  const plazoMeses = Number(meses) || 0;
+  const tasa = Number(tasaMensual) || 0;
+
+  // 2. Porcentaje Total Fijo (Tasa x Meses)
+  // Ej: 15% mensual x 3 meses = 45%
+  const porcentajeTotal = tasa * plazoMeses;
+
+  // 3. Monto de Interés en Dinero
+  // Ej: 10,000 * (45 / 100) = 4,500
+  const interesTotalMonto = principal * (porcentajeTotal / 100);
+
+  // 4. Total Final a Pagar
+  // Ej: 10,000 + 4,500 = 14,500
+  const totalAPagar = principal + interesTotalMonto;
+
+  return {
+    porcentajeTotal,
+    interesTotalMonto,
+    totalAPagar
+  };
+}
+
 // Calculate loan installments - INTERÉS SIMPLE MENSUAL FIJO
 function calculateInstallment(amount: number, interestRate: number, term: number, type: LoanType): number {
-  // FÓRMULA EXACTA:
-  const plazo = Number(term);
-  const interesMensual = Number(interestRate);
-  const principal = Number(amount);
+  // Usar la función exacta proporcionada
+  const { totalAPagar } = calcularPrestamo(amount, term, interestRate);
 
-  // 1. Porcentaje Total = Interés Mensual * Plazo en Meses
-  const porcentajeTotal = interesMensual * plazo;
+  // Cantidad de Cuotas según Frecuencia
+  let totalCuotas = term;
+  if (type === 'semanal') totalCuotas = term * 4;
+  if (type === 'quincenal') totalCuotas = term * 2;
+  // Si es mensual, totalCuotas ya es igual a term
 
-  // 2. Ganancia de Interés (C$) = Principal * (Porcentaje Total / 100)
-  const montoInteresTotal = principal * (porcentajeTotal / 100);
-
-  // 3. Total a Pagar = Principal + Ganancia de Interés
-  const totalAPagar = principal + montoInteresTotal;
-
-  // 4. Cantidad de Cuotas según Frecuencia
-  let totalCuotas = plazo;
-  if (type === 'semanal') totalCuotas = plazo * 4;
-  if (type === 'quincenal') totalCuotas = plazo * 2;
-  // Si es mensual, totalCuotas ya es igual a plazo
-
-  // 5. Valor de cada Cuota
+  // Valor de cada Cuota
   const valorCuota = totalAPagar / totalCuotas;
   
   return Math.ceil(valorCuota);
 }
 
 function calculateTotalInterest(amount: number, interestRate: number, term: number): number {
-  // FÓRMULA EXACTA:
-  const plazo = Number(term);
-  const interesMensual = Number(interestRate);
-  const principal = Number(amount);
+  // Usar la función exacta proporcionada
+  const { interesTotalMonto } = calcularPrestamo(amount, term, interestRate);
+  return interesTotalMonto;
+}
 
-  // 1. Porcentaje Total = Interés Mensual * Plazo en Meses
-  const porcentajeTotal = interesMensual * plazo;
-
-  // 2. Ganancia de Interés (C$) = Principal * (Porcentaje Total / 100)
-  const montoInteresTotal = principal * (porcentajeTotal / 100);
-
-  return montoInteresTotal;
+function calculateTotalAmount(amount: number, interestRate: number, term: number): number {
+  // Usar la función exacta proporcionada
+  const { totalAPagar } = calcularPrestamo(amount, term, interestRate);
+  return totalAPagar;
 }
 
 const seedLoans: Loan[] = [
@@ -260,7 +272,7 @@ export const useStore = create<AppState>()(
       addLoan: (loanData) => {
         const installmentAmount = calculateInstallment(loanData.amount, loanData.interestRate, loanData.term, loanData.type);
         const totalInterest = calculateTotalInterest(loanData.amount, loanData.interestRate, loanData.term);
-        const totalAmount = loanData.amount + totalInterest;
+        const totalAmount = calculateTotalAmount(loanData.amount, loanData.interestRate, loanData.term);
         const newLoan: Loan = {
           ...loanData,
           id: uuidv4(),

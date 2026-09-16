@@ -46,17 +46,43 @@ export default function LoansPage() {
     });
   }, [loans, clients, search, statusFilter, currentUser]);
 
-  // LÓGICA FINANCIERA OBLIGATORIA - FÓRMULA EXACTA
+  // --- FUNCIÓN DE CÁLCULO EXACTA PROPORCIONADA ---
+  const calcularPrestamo = (monto: number, meses: number, tasaMensual: number) => {
+    // 1. Convertir a números
+    const principal = Number(monto) || 0;
+    const plazoMeses = Number(meses) || 0;
+    const tasa = Number(tasaMensual) || 0;
+
+    // 2. Porcentaje Total Fijo (Tasa x Meses)
+    // Ej: 15% mensual x 3 meses = 45%
+    const porcentajeTotal = tasa * plazoMeses;
+
+    // 3. Monto de Interés en Dinero
+    // Ej: 10,000 * (45 / 100) = 4,500
+    const interesTotalMonto = principal * (porcentajeTotal / 100);
+
+    // 4. Total Final a Pagar
+    // Ej: 10,000 + 4,500 = 14,500
+    const totalAPagar = principal + interesTotalMonto;
+
+    return {
+      porcentajeTotal,
+      interesTotalMonto,
+      totalAPagar
+    };
+  };
+
+  // CÁLCULO COMPLETO CON CUOTAS Y FECHAS
   const calculation = useMemo(() => {
-    const plazo = Number(form.termMonths); 
-    const interesMensual = Number(form.interestRate); 
-    const principal = Number(form.amount);
+    const principal = Number(form.amount) || 0;
+    const plazoMeses = Number(form.termMonths) || 0;
+    const tasaMensual = Number(form.interestRate) || 0;
 
     // Validar que todos los valores sean números válidos
-    if (isNaN(principal) || isNaN(plazo) || isNaN(interesMensual) || principal <= 0 || plazo <= 0) {
+    if (principal <= 0 || plazoMeses <= 0) {
       return {
         porcentajeTotal: 0,
-        montoInteresTotal: 0,
+        interesTotalMonto: 0,
         totalAPagar: 0,
         totalCuotas: 0,
         valorCuota: 0,
@@ -64,22 +90,16 @@ export default function LoansPage() {
       };
     }
 
-    // 1. Porcentaje Total = Interés Mensual * Plazo en Meses
-    const porcentajeTotal = interesMensual * plazo; 
+    // Usar la función exacta proporcionada
+    const { porcentajeTotal, interesTotalMonto, totalAPagar } = calcularPrestamo(principal, plazoMeses, tasaMensual);
 
-    // 2. Ganancia de Interés (C$) = Principal * (Porcentaje Total / 100)
-    const montoInteresTotal = principal * (porcentajeTotal / 100); 
+    // Cantidad de Cuotas según Frecuencia
+    let totalCuotas = plazoMeses;
+    if (form.frequency === 'Semanal') totalCuotas = plazoMeses * 4;
+    if (form.frequency === 'Quincenal') totalCuotas = plazoMeses * 2;
+    // Si es Mensual, totalCuotas ya es igual a plazoMeses
 
-    // 3. Total a Pagar = Principal + Ganancia de Interés
-    const totalAPagar = principal + montoInteresTotal; 
-
-    // 4. Cantidad de Cuotas según Frecuencia
-    let totalCuotas = plazo;
-    if (form.frequency === 'Semanal') totalCuotas = plazo * 4;
-    if (form.frequency === 'Quincenal') totalCuotas = plazo * 2;
-    // Si es Mensual, totalCuotas ya es igual a plazo
-
-    // 5. Valor de cada Cuota
+    // Valor de cada Cuota
     const valorCuota = totalAPagar / totalCuotas;
 
     // Generar tabla de amortización con fechas
@@ -98,7 +118,7 @@ export default function LoansPage() {
 
     return {
       porcentajeTotal,
-      montoInteresTotal,
+      interesTotalMonto,
       totalAPagar,
       totalCuotas,
       valorCuota,
@@ -447,7 +467,7 @@ export default function LoansPage() {
                 {/* Interés Total */}
                 <div className="flex justify-between items-center py-2 border-b border-purple-100">
                   <span className="text-sm font-medium text-gray-700">Interés Total:</span>
-                  <span className="text-lg font-bold text-green-600">{formatCurrency(calculation.montoInteresTotal)}</span>
+                  <span className="text-lg font-bold text-green-600">{formatCurrency(calculation.interesTotalMonto)}</span>
                 </div>
 
                 {/* TOTAL A PAGAR - DESTACADO */}
