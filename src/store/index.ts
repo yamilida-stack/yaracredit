@@ -34,32 +34,29 @@ const seedArticles: Article[] = [
   { id: 'a6', name: 'iPhone 13 128GB', description: 'iPhone 13 nuevo sellado', category: 'Electrónica', costPrice: 35000, salePrice: 48000, quantity: 2, minStock: 1, brand: 'Apple', model: 'iPhone 13', serialNumber: 'APL-2024-567', imei: '356789012345678', createdAt: '2024-02-15' },
 ];
 
-// Calculate loan installments - Interés MENSUAL
+// Calculate loan installments - INTERÉS SIMPLE MENSUAL FIJO
 function calculateInstallment(amount: number, interestRate: number, term: number, type: LoanType): number {
-  // interestRate es el % MENSUAL
-  // Porcentaje de Interés Total = Interés Mensual × Plazo en meses
-  const totalInterestPercent = interestRate * term;
+  // FÓRMULA EXACTA:
+  const porcentajeTotal = interestRate * term; // Ej: 15 * 3 = 45
+  const montoInteres = amount * (porcentajeTotal / 100); // Ej: 10000 * 0.45 = 4500
+  const totalAPagar = amount + montoInteres; // Ej: 10000 + 4500 = 14500
+
+  // Determinación del número total de cuotas según la frecuencia
+  let numeroCuotas = 0;
+  if (type === 'semanal') numeroCuotas = term * 4;
+  if (type === 'quincenal') numeroCuotas = term * 2;
+  if (type === 'mensual') numeroCuotas = term;
+
+  const valorCuota = totalAPagar / numeroCuotas;
   
-  // Monto de Interés = Monto Principal × (Porcentaje Total / 100)
-  const totalInterestAmount = amount * (totalInterestPercent / 100);
-  
-  // Total a Pagar = Monto Principal + Monto de Interés
-  const totalAmount = amount + totalInterestAmount;
-  
-  // Cálculo de cuotas según modalidad
-  let installments = term;
-  if (type === 'semanal') installments = term * 4;
-  else if (type === 'quincenal') installments = term * 2;
-  
-  return Math.ceil(totalAmount / installments);
+  return Math.ceil(valorCuota);
 }
 
 function calculateTotalInterest(amount: number, interestRate: number, term: number): number {
-  // Porcentaje de Interés Total = Interés Mensual × Plazo en meses
-  const totalInterestPercent = interestRate * term;
-  
-  // Monto de Interés = Monto Principal × (Porcentaje Total / 100)
-  return amount * (totalInterestPercent / 100);
+  // FÓRMULA EXACTA:
+  const porcentajeTotal = interestRate * term;
+  const montoInteres = amount * (porcentajeTotal / 100);
+  return montoInteres;
 }
 
 const seedLoans: Loan[] = [

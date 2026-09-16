@@ -4,17 +4,13 @@ import { Modal, Button, Input, Select, Card, Table, Badge, formatCurrency, forma
 import { Plus, Search, DollarSign, Eye, FileText, Trash2, Calendar, Clock } from 'lucide-react';
 import type { Loan, LoanType, LoanModality } from '../types';
 
-type RateType = 'per_installment' | 'monthly';
-type PaymentFrequency = 'diario' | 'semanal' | 'quincenal' | 'mensual';
+type PaymentFrequency = 'semanal' | 'quincenal' | 'mensual';
 type PreferredDay = 'lunes' | 'martes' | 'miercoles' | 'jueves' | 'viernes' | 'sabado' | 'domingo';
 
 interface AmortizationSchedule {
   installmentNumber: number;
   dueDate: string;
   amount: number;
-  principal: number;
-  interest: number;
-  balance: number;
 }
 
 export default function LoansPage() {
@@ -30,10 +26,9 @@ export default function LoansPage() {
     startDate: new Date().toISOString().split('T')[0],
     preferredDay: 'lunes' as PreferredDay,
     amount: '',
-    frequency: 'semanal' as PaymentFrequency,
-    installments: '12',
-    rateType: 'per_installment' as RateType,
+    termMonths: '3',
     interestRate: '15',
+    frequency: 'semanal' as PaymentFrequency,
     assignedCollector: '',
     articleId: '',
     guarantees: '',
@@ -51,86 +46,60 @@ export default function LoansPage() {
     });
   }, [loans, clients, search, statusFilter, currentUser]);
 
-  // Cálculo financiero completo
+  // CÁLCULO FINANCIERO EXACTO - INTERÉS SIMPLE MENSUAL FIJO
   const calculation = useMemo(() => {
-    const principal = parseFloat(form.amount) || 0;
-    const rate = parseFloat(form.interestRate) || 0;
-    const numInstallments = parseInt(form.installments) || 1;
-    
-    if (principal <= 0 || numInstallments <= 0) {
+    const montoPrincipal = parseFloat(form.amount) || 0;
+    const interesMensual = parseFloat(form.interestRate) || 0;
+    const plazoMeses = parseInt(form.termMonths) || 0;
+    const frecuencia = form.frequency;
+
+    if (montoPrincipal <= 0 || plazoMeses <= 0) {
       return {
-        interestPerInstallment: 0,
-        totalInterest: 0,
-        totalToPay: 0,
-        installmentAmount: 0,
-        totalInterestPercent: 0,
+        porcentajeTotal: 0,
+        montoInteres: 0,
+        totalAPagar: 0,
+        numeroCuotas: 0,
+        valorCuota: 0,
         schedule: [] as AmortizationSchedule[]
       };
     }
 
-    let totalInterestPercent = 0;
-    let totalInterest = 0;
+    // FÓRMULA EXACTA SOLICITADA
+    const porcentajeTotal = interesMensual * plazoMeses;
+    const montoInteres = montoPrincipal * (porcentajeTotal / 100);
+    const totalAPagar = montoPrincipal + montoInteres;
 
-    // A) Tasa por Cuota
-    if (form.rateType === 'per_installment') {
-      const interestPerInstallment = principal * (rate / 100);
-      totalInterest = interestPerInstallment * numInstallments;
-      totalInterestPercent = rate * numInstallments;
-    } 
-    // B) Tasa Mensual
-    else {
-      let totalMonths = 0;
-      
-      // Convertir plazo a meses según frecuencia
-      if (form.frequency === 'semanal') {
-        totalMonths = numInstallments / 4;
-      } else if (form.frequency === 'quincenal') {
-        totalMonths = numInstallments / 2;
-      } else if (form.frequency === 'mensual') {
-        totalMonths = numInstallments;
-      } else if (form.frequency === 'diario') {
-        totalMonths = numInstallments / 30;
-      }
-      
-      totalInterestPercent = rate * totalMonths;
-      totalInterest = principal * (totalInterestPercent / 100);
-    }
+    // Determinación del número total de cuotas según la frecuencia
+    let numeroCuotas = 0;
+    if (frecuencia === 'semanal') numeroCuotas = plazoMeses * 4;
+    if (frecuencia === 'quincenal') numeroCuotas = plazoMeses * 2;
+    if (frecuencia === 'mensual') numeroCuotas = plazoMeses;
 
-    const totalToPay = principal + totalInterest;
-    const installmentAmount = totalToPay / numInstallments;
+    const valorCuota = totalAPagar / numeroCuotas;
 
-    // Generar tabla de amortización
+    // Generar tabla de amortización con fechas
     const schedule: AmortizationSchedule[] = [];
     const startDate = new Date(form.startDate);
-    const principalPerInstallment = principal / numInstallments;
-    const interestPerInstallment = totalInterest / numInstallments;
-    
-    let currentBalance = principal;
 
-    for (let i = 1; i <= numInstallments; i++) {
-      const dueDate = calculateDueDate(startDate, i, form.frequency, form.preferredDay);
-      
-      currentBalance -= principalPerInstallment;
+    for (let i = 1; i <= numeroCuotas; i++) {
+      const dueDate = calculateDueDate(startDate, i, frecuencia, form.preferredDay);
       
       schedule.push({
         installmentNumber: i,
         dueDate: dueDate.toISOString().split('T')[0],
-        amount: installmentAmount,
-        principal: principalPerInstallment,
-        interest: interestPerInstallment,
-        balance: Math.max(0, currentBalance)
+        amount: valorCuota
       });
     }
 
     return {
-      interestPerInstallment: totalInterest / numInstallments,
-      totalInterest,
-      totalToPay,
-      installmentAmount,
-      totalInterestPercent,
+      porcentajeTotal,
+      montoInteres,
+      totalAPagar,
+      numeroCuotas,
+      valorCuota,
       schedule
     };
-  }, [form.amount, form.interestRate, form.installments, form.rateType, form.frequency, form.startDate, form.preferredDay]);
+  }, [form.amount, form.interestRate, form.termMonths, form.frequency, form.startDate, form.preferredDay]);
 
   // Función para calcular fecha de cobro
   function calculateDueDate(startDate: Date, installmentNumber: number, frequency: PaymentFrequency, preferredDay: PreferredDay): Date {
@@ -150,14 +119,12 @@ export default function LoansPage() {
     }
 
     // Calcular fecha según frecuencia
-    if (frequency === 'diario') {
-      date.setDate(date.getDate() + (installmentNumber - 1));
-    } else if (frequency === 'semanal') {
+    if (frequency === 'semanal') {
       date.setDate(date.getDate() + (installmentNumber - 1) * 7);
     } else if (frequency === 'quincenal') {
       date.setDate(date.getDate() + (installmentNumber - 1) * 15);
     } else if (frequency === 'mensual') {
-      date.setMonth(date.getMonth() + (installmentNumber - 1));
+      date.setDate(date.getDate() + (installmentNumber - 1) * 30);
     }
 
     // Asegurar que caiga en el día preferido
@@ -183,10 +150,9 @@ export default function LoansPage() {
       startDate: new Date().toISOString().split('T')[0],
       preferredDay: 'lunes',
       amount: '',
-      frequency: 'semanal',
-      installments: '12',
-      rateType: 'per_installment',
+      termMonths: '3',
       interestRate: '15',
+      frequency: 'semanal',
       assignedCollector: '',
       articleId: '',
       guarantees: '',
@@ -209,7 +175,7 @@ export default function LoansPage() {
       modality: form.modality,
       amount: parseFloat(form.amount),
       interestRate: parseFloat(form.interestRate),
-      term: parseInt(form.installments),
+      term: parseInt(form.termMonths),
       startDate: form.startDate,
       status: 'activo',
       assignedCollector: form.assignedCollector || undefined,
@@ -228,7 +194,6 @@ export default function LoansPage() {
     : [];
 
   const frequencyLabels: Record<PaymentFrequency, string> = {
-    diario: 'Diario',
     semanal: 'Semanal',
     quincenal: 'Quincenal',
     mensual: 'Mensual'
@@ -293,7 +258,7 @@ export default function LoansPage() {
                   <td className="px-4 py-3 text-sm font-medium">{formatCurrency(loan.amount)}</td>
                   <td className="px-4 py-3">
                     <Badge variant="info">{frequencyLabels[loan.type as PaymentFrequency] || loan.type}</Badge>
-                    <p className="text-xs text-gray-400 mt-0.5">{loan.term} cuotas</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{loan.term} meses</p>
                   </td>
                   <td className="px-4 py-3 text-sm">{formatCurrency(loan.installmentAmount)}</td>
                   <td className="px-4 py-3 text-sm text-gray-600">{loan.payments.length} pagos</td>
@@ -343,9 +308,9 @@ export default function LoansPage() {
               ]} value={form.clientId} onChange={e => setForm({...form, clientId: e.target.value})} />
             </div>
 
-            {/* Fecha de Inicio */}
+            {/* Fecha de Creación */}
             <Input 
-              label="Fecha de Inicio" 
+              label="Fecha de Creación / Inicio" 
               type="date" 
               value={form.startDate} 
               onChange={e => setForm({...form, startDate: e.target.value})} 
@@ -367,55 +332,43 @@ export default function LoansPage() {
               onChange={e => setForm({...form, preferredDay: e.target.value as PreferredDay})} 
             />
 
-            {/* Monto */}
+            {/* Monto Prestado */}
             <Input 
-              label="Monto del Crédito (C$) *" 
+              label="Monto Prestado (C$) *" 
               type="number" 
               value={form.amount} 
               onChange={e => setForm({...form, amount: e.target.value})} 
-              placeholder="3000" 
+              placeholder="10000" 
+            />
+
+            {/* Plazo en Meses */}
+            <Input 
+              label="Plazo en Meses" 
+              type="number" 
+              value={form.termMonths} 
+              onChange={e => setForm({...form, termMonths: e.target.value})} 
+              placeholder="3" 
+            />
+
+            {/* Interés Mensual */}
+            <Input 
+              label="Interés Mensual (%)" 
+              type="number" 
+              value={form.interestRate} 
+              onChange={e => setForm({...form, interestRate: e.target.value})} 
+              placeholder="15" 
             />
 
             {/* Frecuencia de Pago */}
             <Select 
               label="Frecuencia de Pago" 
               options={[
-                { value: 'diario', label: 'Diario' },
                 { value: 'semanal', label: 'Semanal' },
                 { value: 'quincenal', label: 'Quincenal' },
                 { value: 'mensual', label: 'Mensual' },
               ]} 
               value={form.frequency} 
               onChange={e => setForm({...form, frequency: e.target.value as PaymentFrequency})} 
-            />
-
-            {/* Número de Cuotas */}
-            <Input 
-              label="Número de Cuotas" 
-              type="number" 
-              value={form.installments} 
-              onChange={e => setForm({...form, installments: e.target.value})} 
-              placeholder="12" 
-            />
-
-            {/* Tipo de Tasa */}
-            <Select 
-              label="Tipo de Tasa" 
-              options={[
-                { value: 'per_installment', label: 'Tasa por Cuota (%)' },
-                { value: 'monthly', label: 'Tasa Mensual (%)' },
-              ]} 
-              value={form.rateType} 
-              onChange={e => setForm({...form, rateType: e.target.value as RateType})} 
-            />
-
-            {/* Porcentaje de Interés */}
-            <Input 
-              label={`Porcentaje de Interés (%) - ${form.rateType === 'per_installment' ? 'por cuota' : 'mensual'}`} 
-              type="number" 
-              value={form.interestRate} 
-              onChange={e => setForm({...form, interestRate: e.target.value})} 
-              placeholder="15" 
             />
 
             {/* Modalidad */}
@@ -471,40 +424,58 @@ export default function LoansPage() {
             </div>
           </div>
 
-          {/* Resumen del Préstamo */}
+          {/* RESUMEN DEL PRÉSTAMO - DESGLOSE EXACTO */}
           {form.amount && parseFloat(form.amount) > 0 && (
             <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-5 border-2 border-purple-200">
               <h4 className="font-bold text-purple-900 mb-4 flex items-center gap-2 text-lg">
                 <DollarSign size={22} /> Resumen del Préstamo
               </h4>
               
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div className="bg-white rounded-lg p-3">
-                  <p className="text-xs text-gray-500 mb-1">Monto Prestado</p>
-                  <p className="text-xl font-bold text-gray-900">{formatCurrency(parseFloat(form.amount))}</p>
+              <div className="space-y-3">
+                {/* Monto Solicitado */}
+                <div className="flex justify-between items-center py-2 border-b border-purple-100">
+                  <span className="text-sm font-medium text-gray-700">Monto Solicitado:</span>
+                  <span className="text-lg font-bold text-gray-900">{formatCurrency(parseFloat(form.amount))}</span>
                 </div>
-                <div className="bg-white rounded-lg p-3">
-                  <p className="text-xs text-gray-500 mb-1">Interés Ganado Total</p>
-                  <p className="text-xl font-bold text-green-600">{formatCurrency(calculation.totalInterest)}</p>
-                  <p className="text-xs text-gray-400">{calculation.totalInterestPercent.toFixed(2)}% total</p>
-                </div>
-              </div>
 
-              <div className="bg-white rounded-lg p-4 mb-4">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm font-medium text-gray-700">Total General a Cobrar:</span>
-                  <span className="text-3xl font-bold text-purple-900">{formatCurrency(calculation.totalToPay)}</span>
+                {/* Interés Mensual */}
+                <div className="flex justify-between items-center py-2 border-b border-purple-100">
+                  <span className="text-sm font-medium text-gray-700">Interés Mensual:</span>
+                  <span className="text-lg font-bold text-gray-900">{form.interestRate}%</span>
                 </div>
-                <div className="flex justify-between items-center pt-2 border-t">
-                  <span className="text-sm text-gray-600">Plan de Pago:</span>
-                  <span className="text-lg font-bold text-green-700">
-                    {form.installments} cuotas {frequencyLabels[form.frequency]} de {formatCurrency(calculation.installmentAmount)}
+
+                {/* Plazo */}
+                <div className="flex justify-between items-center py-2 border-b border-purple-100">
+                  <span className="text-sm font-medium text-gray-700">Plazo:</span>
+                  <span className="text-lg font-bold text-gray-900">{form.termMonths} meses</span>
+                </div>
+
+                {/* Interés Total */}
+                <div className="flex justify-between items-center py-2 border-b border-purple-100">
+                  <span className="text-sm font-medium text-gray-700">Interés Total ({calculation.porcentajeTotal}%):</span>
+                  <span className="text-lg font-bold text-green-600">{formatCurrency(calculation.montoInteres)}</span>
+                </div>
+
+                {/* TOTAL A PAGAR - DESTACADO */}
+                <div className="bg-white rounded-lg p-4 mt-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-base font-bold text-gray-900">TOTAL A PAGAR:</span>
+                    <span className="text-3xl font-bold text-purple-900">{formatCurrency(calculation.totalAPagar)}</span>
+                  </div>
+                </div>
+
+                {/* Plan de Pago */}
+                <div className="flex justify-between items-center py-2 bg-green-50 rounded-lg px-3">
+                  <span className="text-sm font-bold text-gray-700">Plan:</span>
+                  <span className="text-base font-bold text-green-700">
+                    {calculation.numeroCuotas} cuotas {frequencyLabels[form.frequency]} de {formatCurrency(calculation.valorCuota)}
                   </span>
                 </div>
               </div>
 
+              {/* Fechas de Cobro */}
               {calculation.schedule.length > 0 && (
-                <div className="bg-white rounded-lg p-3">
+                <div className="mt-4 bg-white rounded-lg p-3">
                   <div className="flex items-center gap-2 mb-2">
                     <Calendar size={16} className="text-purple-600" />
                     <span className="text-sm font-medium text-gray-700">Primer Cobro:</span>
@@ -529,11 +500,8 @@ export default function LoansPage() {
                       <thead className="bg-purple-100 sticky top-0">
                         <tr>
                           <th className="px-2 py-1 text-left">#</th>
-                          <th className="px-2 py-1 text-left">Fecha</th>
-                          <th className="px-2 py-1 text-right">Cuota</th>
-                          <th className="px-2 py-1 text-right">Capital</th>
-                          <th className="px-2 py-1 text-right">Interés</th>
-                          <th className="px-2 py-1 text-right">Saldo</th>
+                          <th className="px-2 py-1 text-left">Fecha de Cobro</th>
+                          <th className="px-2 py-1 text-right">Monto Cuota</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -542,9 +510,6 @@ export default function LoansPage() {
                             <td className="px-2 py-1">{row.installmentNumber}</td>
                             <td className="px-2 py-1">{formatDate(row.dueDate)}</td>
                             <td className="px-2 py-1 text-right font-medium">{formatCurrency(row.amount)}</td>
-                            <td className="px-2 py-1 text-right text-gray-600">{formatCurrency(row.principal)}</td>
-                            <td className="px-2 py-1 text-right text-green-600">{formatCurrency(row.interest)}</td>
-                            <td className="px-2 py-1 text-right font-medium">{formatCurrency(row.balance)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -577,7 +542,7 @@ export default function LoansPage() {
                 <div><p className="text-xs text-gray-500">Tipo</p><p className="font-medium capitalize">{showDetail.type} - {showDetail.modality}</p></div>
                 <div><p className="text-xs text-gray-500">Fecha Inicio</p><p className="font-medium">{formatDate(showDetail.startDate)}</p></div>
                 <div><p className="text-xs text-gray-500">Monto</p><p className="font-bold text-lg">{formatCurrency(showDetail.amount)}</p></div>
-                <div><p className="text-xs text-gray-500">Interés</p><p className="font-medium">{showDetail.interestRate}%</p></div>
+                <div><p className="text-xs text-gray-500">Interés</p><p className="font-medium">{showDetail.interestRate}% mensual</p></div>
                 <div><p className="text-xs text-gray-500">Cuota</p><p className="font-bold text-green-700">{formatCurrency(showDetail.installmentAmount)}</p></div>
                 <div><p className="text-xs text-gray-500">Total</p><p className="font-medium">{formatCurrency(showDetail.totalAmount)}</p></div>
               </div>
