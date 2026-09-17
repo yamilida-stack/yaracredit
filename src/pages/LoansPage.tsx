@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../store';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabaseClient';
+import { registerPayment } from '../services/supabaseService';
 import { Modal, Button, Input, Select, Card, Table, Badge, formatCurrency, formatDate, EmptyState } from '../components/ui';
 import { Plus, Search, DollarSign, Eye, FileText, Trash2, Calendar, Clock, Edit2, Download } from 'lucide-react';
 import { exportLoansPDF } from '../utils/pdfGenerator';
@@ -25,6 +26,11 @@ export default function LoansPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showModal, setShowModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentLoan, setPaymentLoan] = useState<Loan | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'efectivo' | 'transferencia'>('efectivo');
+  const [paymentLoading, setPaymentLoading] = useState(false);
   const [showDetail, setShowDetail] = useState<Loan | null>(null);
   const [editing, setEditing] = useState<Loan | null>(null);
 
@@ -368,6 +374,48 @@ export default function LoansPage() {
     }
   };
 
+  const handleOpenPayment = (loan: Loan) => {
+    setPaymentLoan(loan);
+    setPaymentAmount(String(Math.min(loan.installmentAmount, loan.totalAmount)));
+    setPaymentMethod('efectivo');
+    setShowPaymentModal(true);
+  };
+
+  const handlePayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!paymentLoan) return;
+
+    const amount = Number(paymentAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      addNotification('error', 'Ingresa un monto de pago válido');
+      return;
+    }
+
+    setPaymentLoading(true);
+    try {
+      await registerPayment({
+        creditoId: paymentLoan.id,
+        clientId: paymentLoan.clientId,
+        amount,
+        method: paymentMethod,
+        date: new Date().toISOString().split('T')[0],
+        collectorId: profile?.id || '',
+        isLate: paymentLoan.status === 'mora',
+      });
+
+      setShowPaymentModal(false);
+      setPaymentLoan(null);
+      addNotification('success', 'Pago registrado correctamente');
+      await loadLoans();
+    } catch (error: any) {
+      console.error('Error al registrar pago:', error);
+      addNotification('error', 'Error al registrar pago: ' + error.message);
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -695,10 +743,7 @@ export default function LoansPage() {
                       )}
                       {loan.status === 'activo' && remaining > 0 && (
                         <button 
-                          onClick={() => {
-                            // Aquí iría la lógica para registrar pago
-                            addNotification('info', 'Función de registrar pago - próximamente');
-                          }}
+                          onClick={() => handleOpenPayment(loan)}
                           className="p-2 hover:bg-green-50 rounded-lg text-green-600" 
                           title="Registrar pago"
                         >
@@ -956,6 +1001,59 @@ export default function LoansPage() {
             <Button variant="secondary" type="button" onClick={() => setShowModal(false)}>Cancelar</Button>
             <Button type="submit">
               <FileText size={16} /> {editing ? 'Actualizar Préstamo' : 'Crear Préstamo'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        isOpen={showPaymentModal}
+        onClose={() => {
+          if (!paymentLoading) {
+            setShowPaymentModal(false);
+            setPaymentLoan(null);
+          }
+        }}
+        title="Registrar Pago"
+      >
+        <form onSubmit={handlePayment} className="space-y-4">
+          <p className="text-sm text-gray-600">
+            {paymentLoan
+              ? `Cliente: ${clients.find(client => client.id === paymentLoan.clientId)?.fullName || 'Sin nombre'}`
+              : ''}
+          </p>
+          <Input
+            label="Monto del pago"
+            type="number"
+            min="0.01"
+            step="0.01"
+            value={paymentAmount}
+            onChange={e => setPaymentAmount(e.target.value)}
+            required
+          />
+          <Select
+            label="Método de pago"
+            options={[
+              { value: 'efectivo', label: 'Efectivo' },
+              { value: 'transferencia', label: 'Transferencia' },
+            ]}
+            value={paymentMethod}
+            onChange={e => setPaymentMethod(e.target.value as 'efectivo' | 'transferencia')}
+          />
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button
+              variant="secondary"
+              type="button"
+              onClick={() => {
+                setShowPaymentModal(false);
+                setPaymentLoan(null);
+              }}
+              disabled={paymentLoading}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={paymentLoading}>
+              {paymentLoading ? 'Guardando...' : 'Registrar Pago'}
             </Button>
           </div>
         </form>
