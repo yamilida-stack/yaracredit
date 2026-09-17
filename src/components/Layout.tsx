@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../store';
 import { useAuth } from '../contexts/AuthContext';
+import { normalizeRole } from '../types';
 import {
   LayoutDashboard, Users, DollarSign, Package, Receipt, FileText,
   Wallet, UserCog, BarChart3, Route, LogOut, Menu, X, Bell, Wifi, WifiOff, Settings, Shield
@@ -13,20 +14,20 @@ interface LayoutProps {
 }
 
 const navItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'cobrador'] },
-  { id: 'clients', label: 'Clientes', icon: Users, roles: ['admin', 'cobrador'] },
-  { id: 'loans', label: 'Préstamos', icon: DollarSign, roles: ['admin', 'cobrador'] },
-  { id: 'collections', label: 'Cobros', icon: Receipt, roles: ['admin', 'cobrador'] },
-  { id: 'financed-devices', label: 'Dispositivos', icon: Package, roles: ['admin', 'cobrador'] },
-  { id: 'risk-score', label: 'Score Riesgo', icon: Shield, roles: ['admin'] },
-  { id: 'routes', label: 'Rutas', icon: Route, roles: ['admin'] },
-  { id: 'stock', label: 'Stock', icon: Package, roles: ['admin'] },
-  { id: 'cash', label: 'Caja', icon: Wallet, roles: ['admin'] },
-  { id: 'contracts', label: 'Contratos', icon: FileText, roles: ['admin'] },
-  { id: 'payroll', label: 'Planilla', icon: UserCog, roles: ['admin'] },
-  { id: 'reports', label: 'Reportes', icon: BarChart3, roles: ['admin'] },
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'gerente', 'cobrador', 'solo_lectura'] },
+  { id: 'clients', label: 'Clientes', icon: Users, roles: ['admin', 'gerente', 'cobrador', 'solo_lectura'] },
+  { id: 'loans', label: 'Préstamos', icon: DollarSign, roles: ['admin', 'gerente', 'cobrador', 'solo_lectura'] },
+  { id: 'collections', label: 'Cobros', icon: Receipt, roles: ['admin', 'gerente', 'cobrador'] },
+  { id: 'financed-devices', label: 'Dispositivos', icon: Package, roles: ['admin', 'gerente', 'cobrador'] },
+  { id: 'risk-score', label: 'Score Riesgo', icon: Shield, roles: ['admin', 'gerente'] },
+  { id: 'routes', label: 'Rutas', icon: Route, roles: ['admin', 'gerente'] },
+  { id: 'stock', label: 'Stock', icon: Package, roles: ['admin', 'gerente', 'cobrador'] },
+  { id: 'cash', label: 'Caja', icon: Wallet, roles: ['admin', 'gerente'] },
+  { id: 'contracts', label: 'Contratos', icon: FileText, roles: ['admin', 'gerente'] },
+  { id: 'payroll', label: 'Planilla', icon: UserCog, roles: ['admin', 'gerente'] },
+  { id: 'reports', label: 'Reportes', icon: BarChart3, roles: ['admin', 'gerente'] },
   { id: 'user-management', label: 'Gestión de Usuarios', icon: Users, roles: ['admin'] },
-  { id: 'settings', label: 'Configuración', icon: Settings, roles: ['admin'] },
+  { id: 'settings', label: 'Configuración', icon: Settings, roles: ['admin', 'gerente'] },
 ];
 
 export default function Layout({ children, currentPage, onNavigate }: LayoutProps) {
@@ -35,13 +36,16 @@ export default function Layout({ children, currentPage, onNavigate }: LayoutProp
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isOnline] = useState(navigator.onLine);
 
+  const normalizedProfileRole = profile ? normalizeRole(profile.role) : null;
   const filteredNav = navItems.filter(item =>
-    profile && item.roles.includes(profile.role)
+    normalizedProfileRole && item.roles.includes(normalizedProfileRole)
   );
 
   const roleLabels = {
     admin: 'Administrador',
+    gerente: 'Gerente',
     cobrador: 'Cobrador',
+    solo_lectura: 'Solo lectura',
   };
 
   return (
@@ -99,7 +103,7 @@ export default function Layout({ children, currentPage, onNavigate }: LayoutProp
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-gray-900 truncate">{profile?.full_name || profile?.email}</p>
-              <p className="text-xs text-gray-400">{profile ? roleLabels[profile.role as keyof typeof roleLabels] : ''}</p>
+              <p className="text-xs text-gray-400">{normalizedProfileRole ? roleLabels[normalizedProfileRole] : ''}</p>
             </div>
             <button onClick={signOut} className="p-2 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-500 transition-colors" title="Cerrar sesión">
               <LogOut size={18} />

@@ -1,12 +1,13 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import type { User, Session } from '@supabase/supabase-js';
+import { normalizeRole, type Role } from '../types';
 
 interface Profile {
   id: string;
   email: string;
   full_name: string;
-  role: 'admin' | 'cobrador';
+  role: Role;
   phone?: string;
   active: boolean;
 }
@@ -43,7 +44,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return null;
       }
 
-      return data as Profile;
+      if (!data) {
+        return null;
+      }
+
+      return {
+        ...data,
+        role: normalizeRole(data.role),
+      } as Profile;
     } catch (err) {
       console.error('Error in fetchProfile:', err);
       return null;

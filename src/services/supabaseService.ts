@@ -181,7 +181,7 @@ export async function fetchCreditos(): Promise<Loan[]> {
       *,
       clientes!inner(*),
       cuotas(*),
-      cobros(*)
+      pagos(*)
     `)
     .order('created_at', { ascending: false });
   
@@ -282,7 +282,7 @@ function mapCreditoFromDB(db: any): Loan {
     observations: undefined, // Ya no se guarda en la BD
     purpose: undefined, // Ya no se guarda en la BD
     preferredDay: db.dia_cobro,
-    payments: (db.cobros || []).map(mapPagoFromDB),
+    payments: (db.pagos || db.cobros || []).map(mapPagoFromDB),
     createdAt: db.created_at,
   };
 }
@@ -345,21 +345,25 @@ export async function registerPayment(payment: {
       .select('monto_restante')
       .eq('id', payment.creditoId)
       .single();
-    
-    if (!prestamoError && prestamoActual) {
-      const nuevoMontoRestante = Math.max(0, prestamoActual.monto_restante - payment.amount);
-      const nuevoEstado = nuevoMontoRestante === 0 ? 'pagado' : 'activo';
-      
-      await supabase
+
+    if (prestamoError) throw prestamoError;
+    if (!prestamoActual) {
+      throw new Error('No se encontró el préstamo para actualizar su saldo');
+    }
+
+    const nuevoMontoRestante = Math.max(0, Number(prestamoActual.monto_restante) - payment.amount);
+    const nuevoEstado = nuevoMontoRestante <= 0 ? 'pagado' : 'activo';
+
+    const { error: updateError } = await supabase
         .from('prestamos')
         .update({
           monto_restante: nuevoMontoRestante,
           estado: nuevoEstado,
         })
         .eq('id', payment.creditoId);
-      
-      console.log('Monto restante actualizado:', nuevoMontoRestante, 'Estado:', nuevoEstado);
-    }
+
+    if (updateError) throw updateError;
+    console.log('Monto restante actualizado:', nuevoMontoRestante, 'Estado:', nuevoEstado);
 
     console.log('Pago registrado exitosamente');
     return mapPagoFromDB(data);

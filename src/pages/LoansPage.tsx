@@ -81,7 +81,7 @@ export default function LoansPage() {
           *,
           clientes!inner(*),
           cuotas(*),
-          cobros(*)
+          pagos(*)
         `)
         .order('created_at', { ascending: false });
 
@@ -107,13 +107,13 @@ export default function LoansPage() {
         observations: undefined, // Ya no se guarda en la BD
         purpose: undefined, // Ya no se guarda en la BD
         preferredDay: loan.dia_cobro,
-        payments: (loan.cobros || []).map((p: any) => ({
+        payments: (loan.pagos || loan.cobros || []).map((p: any) => ({
           id: p.id,
           loanId: p.prestamo_id,
           clientId: '', // Ya no viene de la BD
           amount: p.monto,
           method: p.metodo_pago,
-          date: p.fecha_cobro,
+          date: p.fecha || p.fecha_cobro,
           collectorId: p.creado_por,
           receiptNumber: p.nota?.replace('Recibo: ', '') || '',
           isLate: false, // Ya no viene de la BD
@@ -334,6 +334,40 @@ export default function LoansPage() {
     setShowModal(true);
   };
 
+  const handleEditLoan = async (id: string, updatedData: Record<string, unknown>) => {
+    try {
+      const { error } = await supabase
+        .from('prestamos')
+        .update(updatedData)
+        .eq('id', id);
+
+      if (error) throw error;
+      await loadLoans();
+    } catch (error: any) {
+      console.error('Error al editar préstamo:', error);
+      throw error;
+    }
+  };
+
+  const handleDeleteLoan = async (id: string) => {
+    if (!window.confirm('¿Estás seguro de eliminar este préstamo? Esta acción no se puede deshacer.')) return;
+
+    try {
+      const { error } = await supabase
+        .from('prestamos')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      addNotification('success', 'Préstamo eliminado exitosamente');
+      await loadLoans();
+    } catch (error: any) {
+      console.error('Error al eliminar préstamo:', error);
+      addNotification('error', 'Error al eliminar préstamo: ' + error.message);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -431,16 +465,7 @@ export default function LoansPage() {
           fecha_fin: fechaFinStr,
         };
         
-        console.log('=== ACTUALIZANDO PRÉSTAMO ===');
-        console.log('ID:', editing.id);
-        console.log('Payload:', updatePayload);
-        
-        const { error } = await supabase
-          .from('prestamos')
-          .update(updatePayload)
-          .eq('id', editing.id);
-
-        if (error) throw error;
+        await handleEditLoan(editing.id, updatePayload);
         addNotification('success', 'Préstamo actualizado exitosamente');
       } else {
         // Crear nuevo préstamo
@@ -526,8 +551,9 @@ export default function LoansPage() {
         addNotification('success', 'Préstamo creado exitosamente');
       }
 
-      // Recargar lista de préstamos
-      await loadLoans();
+      if (!editing) {
+        await loadLoans();
+      }
       setShowModal(false);
     } catch (error: any) {
       console.error('Error al guardar préstamo:', error);
@@ -681,24 +707,7 @@ export default function LoansPage() {
                       )}
                       {currentUser?.role === 'admin' && (
                         <button
-                          onClick={async () => {
-                            if (!confirm('¿Estás seguro de eliminar este préstamo? Esta acción no se puede deshacer.')) return;
-                            
-                            try {
-                              const { error } = await supabase
-                                .from('prestamos')
-                                .delete()
-                                .eq('id', loan.id);
-
-                              if (error) throw error;
-
-                              addNotification('success', 'Préstamo eliminado exitosamente');
-                              await loadLoans();
-                            } catch (error: any) {
-                              console.error('Error al eliminar préstamo:', error);
-                              addNotification('error', 'Error: ' + error.message);
-                            }
-                          }}
+                          onClick={() => handleDeleteLoan(loan.id)}
                           className="p-2 hover:bg-red-50 rounded-lg text-red-600"
                           title="Eliminar préstamo"
                         >

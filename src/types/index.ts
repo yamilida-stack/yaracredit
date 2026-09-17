@@ -1,6 +1,27 @@
 // ==================== ROLES & AUTH ====================
 export type Role = 'admin' | 'gerente' | 'cobrador' | 'solo_lectura';
 
+export function normalizeRole(role?: string | null): Role {
+  const normalized = (role ?? '').trim().toLowerCase();
+
+  switch (normalized) {
+    case 'administrador':
+    case 'admin':
+      return 'admin';
+    case 'gerente':
+      return 'gerente';
+    case 'cobrador':
+    case 'collector':
+      return 'cobrador';
+    case 'solo lectura':
+    case 'solo_lectura':
+    case 'readonly':
+      return 'solo_lectura';
+    default:
+      return 'cobrador';
+  }
+}
+
 export interface User {
   id: string;
   name: string;

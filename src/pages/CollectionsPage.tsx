@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore } from '../store';
 import { supabase } from '../lib/supabaseClient';
 import { registerPayment } from '../services/supabaseService';
@@ -38,7 +38,7 @@ export default function CollectionsPage() {
           *,
           clientes!inner(*),
           cuotas(*),
-          cobros(*)
+          pagos(*)
         `)
         .order('created_at', { ascending: false });
 
@@ -64,13 +64,13 @@ export default function CollectionsPage() {
         observations: undefined,
         purpose: undefined,
         preferredDay: loan.dia_cobro,
-        payments: (loan.cobros || []).map((p: any) => ({
+        payments: (loan.pagos || loan.cobros || []).map((p: any) => ({
           id: p.id,
           loanId: p.prestamo_id,
           clientId: '',
           amount: p.monto,
           method: p.metodo_pago,
-          date: p.fecha_cobro,
+          date: p.fecha || p.fecha_cobro,
           collectorId: p.creado_por,
           receiptNumber: p.nota?.replace('Recibo: ', '') || '',
           isLate: false,
@@ -86,6 +86,10 @@ export default function CollectionsPage() {
       addNotification('error', 'Error al cargar préstamos: ' + error.message);
     }
   };
+
+  useEffect(() => {
+    void loadLoans();
+  }, []);
 
   const handleOpenPayment = (loanId: string) => {
     const loan = loans.find(l => l.id === loanId);

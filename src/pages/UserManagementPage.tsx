@@ -4,12 +4,13 @@ import { useAuth } from '../contexts/AuthContext';
 import { Card, Button, Input, Select, Table, Badge, Modal } from '../components/ui';
 import { Plus, Users, Trash2, Edit2, UserCheck, UserX } from 'lucide-react';
 import { useStore } from '../store';
+import { normalizeRole, type Role } from '../types';
 
 interface UserProfile {
   id: string;
   email: string;
   full_name: string;
-  role: 'admin' | 'cobrador';
+  role: Role;
   active: boolean;
   created_at: string;
 }
@@ -25,7 +26,7 @@ export default function UserManagementPage() {
     full_name: '',
     email: '',
     password: '',
-    role: 'cobrador' as 'admin' | 'cobrador',
+    role: 'cobrador' as Role,
   });
 
   // Cargar usuarios al montar el componente
@@ -42,7 +43,10 @@ export default function UserManagementPage() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setUsers(data || []);
+      setUsers((data || []).map(user => ({
+        ...user,
+        role: normalizeRole(user.role),
+      })));
     } catch (error: any) {
       addNotification('error', 'Error al cargar usuarios: ' + error.message);
     } finally {

@@ -104,6 +104,40 @@ export default function ClientsPage() {
     setShowModal(true);
   };
 
+  const handleEditClient = async (id: string, updatedData: Record<string, unknown>) => {
+    try {
+      const { error } = await supabase
+        .from('clientes')
+        .update(updatedData)
+        .eq('id', id);
+
+      if (error) throw error;
+      await loadClients();
+    } catch (error: any) {
+      console.error('Error al editar cliente:', error);
+      throw error;
+    }
+  };
+
+  const handleDeleteClient = async (id: string) => {
+    if (!window.confirm('¿Estás seguro de eliminar este cliente?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('clientes')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      addNotification('success', 'Cliente eliminado exitosamente');
+      await loadClients();
+    } catch (error: any) {
+      console.error('Error al eliminar cliente:', error);
+      addNotification('error', 'Error al eliminar cliente: ' + error.message);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.fullName || !form.cedula || !form.phone) {
@@ -138,14 +172,7 @@ export default function ClientsPage() {
 
     try {
       if (editing) {
-        // Actualizar cliente existente
-        console.log('Actualizando cliente:', editing.id);
-        const { error } = await supabase
-          .from('clientes')
-          .update(clientData)
-          .eq('id', editing.id);
-
-        if (error) throw error;
+        await handleEditClient(editing.id, clientData);
         addNotification('success', 'Cliente actualizado exitosamente');
       } else {
         // Crear nuevo cliente
@@ -158,30 +185,12 @@ export default function ClientsPage() {
         addNotification('success', 'Cliente creado exitosamente');
       }
 
-      // Recargar lista de clientes
-      await loadClients();
+      if (!editing) {
+        await loadClients();
+      }
       setShowModal(false);
     } catch (error: any) {
       console.error('Error al guardar cliente:', error);
-      addNotification('error', 'Error: ' + error.message);
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm('¿Estás seguro de eliminar este cliente?')) return;
-
-    try {
-      const { error } = await supabase
-        .from('clientes')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
-      addNotification('success', 'Cliente eliminado exitosamente');
-      await loadClients();
-    } catch (error: any) {
-      console.error('Error al eliminar cliente:', error);
       addNotification('error', 'Error: ' + error.message);
     }
   };
@@ -280,7 +289,7 @@ export default function ClientsPage() {
                             <Edit2 size={16} />
                           </button>
                           {currentUser?.role === 'admin' && (
-                            <button onClick={() => handleDelete(client.id)} className="p-2 hover:bg-red-50 rounded-lg text-red-600" title="Eliminar">
+                            <button onClick={() => handleDeleteClient(client.id)} className="p-2 hover:bg-red-50 rounded-lg text-red-600" title="Eliminar">
                               <Trash2 size={16} />
                             </button>
                           )}
