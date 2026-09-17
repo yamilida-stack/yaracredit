@@ -193,6 +193,12 @@ export async function createCredito(
   loan: Omit<Loan, 'id' | 'createdAt' | 'payments'>,
   cuotas: Array<{ numero: number; fecha: string; monto: number }>
 ): Promise<Loan> {
+  // Calcular fecha_fin (último cobro)
+  let fechaFin = loan.startDate;
+  if (cuotas.length > 0) {
+    fechaFin = cuotas[cuotas.length - 1].fecha;
+  }
+
   // 1. Insertar crédito
   const { data: prestamoData, error: prestamoError } = await supabase
     .from('prestamos')
@@ -207,6 +213,7 @@ export async function createCredito(
       estado: loan.status,
       dia_cobro: loan.preferredDay?.toLowerCase(),
       fecha_inicio: loan.startDate,
+      fecha_fin: fechaFin, // ¡IMPORTANTE! Fecha del último cobro
     })
     .select()
     .single();

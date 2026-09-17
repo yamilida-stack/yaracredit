@@ -382,6 +382,20 @@ export default function LoansPage() {
     
     const installmentAmount = Math.round(totalAmount / totalCuotas);
 
+    // Calcular fecha_fin (último cobro)
+    const fechaInicio = new Date(form.startDate);
+    const fechaFin = new Date(fechaInicio);
+    
+    if (frequency === 'semanal') {
+      fechaFin.setDate(fechaFin.getDate() + (totalCuotas - 1) * 7);
+    } else if (frequency === 'quincenal') {
+      fechaFin.setDate(fechaFin.getDate() + (totalCuotas - 1) * 14);
+    } else {
+      fechaFin.setMonth(fechaFin.getMonth() + (totalCuotas - 1));
+    }
+    
+    const fechaFinStr = fechaFin.toISOString().split('T')[0];
+
     console.log('Valores calculados:', {
       amount,
       interestRate,
@@ -389,7 +403,9 @@ export default function LoansPage() {
       totalInterest,
       totalAmount,
       totalCuotas,
-      installmentAmount
+      installmentAmount,
+      fecha_inicio: form.startDate,
+      fecha_fin: fechaFinStr
     });
 
     try {
@@ -409,6 +425,7 @@ export default function LoansPage() {
             estado: 'activo',
             dia_cobro: form.preferredDay.toLowerCase(),
             fecha_inicio: form.startDate,
+            fecha_fin: fechaFinStr, // ¡IMPORTANTE! Fecha del último cobro
           })
           .eq('id', editing.id);
 
@@ -427,6 +444,7 @@ export default function LoansPage() {
           estado: 'activo',
           dia_cobro: form.preferredDay.toLowerCase(),
           fecha_inicio: form.startDate,
+          fecha_fin: fechaFinStr,
         });
 
         const { data: newLoan, error: loanError } = await supabase
@@ -442,6 +460,7 @@ export default function LoansPage() {
             estado: 'activo',
             dia_cobro: form.preferredDay.toLowerCase(),
             fecha_inicio: form.startDate,
+            fecha_fin: fechaFinStr, // ¡IMPORTANTE! Fecha del último cobro
           }])
           .select()
           .single();
