@@ -14,7 +14,7 @@ import CashPage from './pages/CashPage';
 import ContractsPage from './pages/ContractsPage';
 import PayrollPage from './pages/PayrollPage';
 import ReportsPage from './pages/ReportsPage';
-import UsersPage from './pages/UsersPage';
+import UserManagementPage from './pages/UserManagementPage';
 import SettingsPage from './pages/SettingsPage';
 import FinancedDevicesPage from './pages/FinancedDevicesPage';
 import RiskScorePage from './pages/RiskScorePage';
@@ -78,7 +78,7 @@ function renderPage(page: string) {
     case 'contracts': return <ContractsPage />;
     case 'payroll': return <PayrollPage />;
     case 'reports': return <ReportsPage />;
-    case 'users': return <UsersPage />;
+    case 'user-management': return <UserManagementPage />;
     case 'settings': return <SettingsPage />;
     case 'financed-devices': return <FinancedDevicesPage />;
     case 'risk-score': return <RiskScorePage />;

@@ -6,7 +6,7 @@ interface Profile {
   id: string;
   email: string;
   full_name: string;
-  role: 'admin' | 'gerente' | 'cobrador' | 'solo_lectura';
+  role: 'administrador' | 'cobrador';
   phone?: string;
   active: boolean;
 }
@@ -17,7 +17,6 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signUp: (email: string, password: string, fullName: string, role?: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: any }>;
 }
@@ -94,21 +93,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error };
   };
 
-  // Registrarse con email y contraseña
-  const signUp = async (email: string, password: string, fullName: string, role: string = 'cobrador') => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-          role: role,
-        },
-      },
-    });
-    return { error };
-  };
-
   // Cerrar sesión
   const signOut = async () => {
     await supabase.auth.signOut();
@@ -131,7 +115,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     session,
     loading,
     signIn,
-    signUp,
     signOut,
     resetPassword,
   };
