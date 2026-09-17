@@ -1,10 +1,11 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../store';
+import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabaseClient';
 import { Modal, Button, Input, Select, Card, Table, Badge, formatCurrency, formatDate, EmptyState } from '../components/ui';
 import { Plus, Search, DollarSign, Eye, FileText, Trash2, Calendar, Clock, Edit2, Download } from 'lucide-react';
 import { exportLoansPDF } from '../utils/pdfGenerator';
-import type { Loan, LoanType, LoanModality } from '../types';
+import type { Loan, LoanType, LoanModality, Client } from '../types';
 
 type PaymentFrequency = 'Semanal' | 'Quincenal' | 'Mensual';
 type PreferredDay = 'Lunes' | 'Martes' | 'Miércoles' | 'Jueves' | 'Viernes' | 'Sábado';
@@ -16,8 +17,10 @@ interface AmortizationSchedule {
 }
 
 export default function LoansPage() {
-  const { clients, articles, addNotification, currentUser } = useStore();
+  const { articles, addNotification, currentUser } = useStore();
+  const { profile } = useAuth();
   const [loans, setLoans] = useState<Loan[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -25,10 +28,49 @@ export default function LoansPage() {
   const [showDetail, setShowDetail] = useState<Loan | null>(null);
   const [editing, setEditing] = useState<Loan | null>(null);
 
-  // Cargar préstamos desde Supabase
+  // Cargar préstamos y clientes desde Supabase
   useEffect(() => {
     loadLoans();
+    loadClients();
   }, []);
+
+  // Cargar clientes desde Supabase
+  const loadClients = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('clientes')
+        .select('*')
+        .order('nombre_completo', { ascending: true });
+
+      if (error) throw error;
+      
+      // Mapear datos de Supabase al formato de Client
+      const mappedClients: Client[] = (data || []).map(client => ({
+        id: client.id,
+        fullName: client.nombre_completo,
+        cedula: client.cedula,
+        address: client.direccion || '',
+        phone: client.telefono,
+        whatsapp: client.whatsapp || client.telefono,
+        email: client.email,
+        guarantor: client.garante,
+        guarantorPhone: client.garante_telefono,
+        lat: client.lat,
+        lng: client.lng,
+        occupation: client.ocupacion,
+        monthlyIncome: client.ingreso_mensual,
+        references: client.referencias,
+        observations: client.observaciones,
+        riskLevel: client.nivel_riesgo,
+        createdAt: client.created_at,
+      }));
+
+      setClients(mappedClients);
+    } catch (error: any) {
+      console.error('Error al cargar clientes:', error);
+      addNotification('error', 'Error al cargar clientes: ' + error.message);
+    }
+  };
 
   const loadLoans = async () => {
     try {
@@ -49,33 +91,33 @@ export default function LoansPage() {
       const mappedLoans: Loan[] = (data || []).map(loan => ({
         id: loan.id,
         clientId: loan.cliente_id,
-        type: loan.tipo,
-        modality: loan.modalidad,
-        amount: loan.monto_principal,
-        interestRate: loan.tasa_mensual,
+        type: 'mensual', // Valor por defecto, ya no viene de la BD
+        modality: 'efectivo', // Valor por defecto, ya no viene de la BD
+        amount: loan.monto,
+        interestRate: loan.tasa_interes,
         term: loan.plazo_meses,
-        installmentAmount: loan.valor_cuota,
+        installmentAmount: loan.monto_total / loan.plazo_meses, // Calcular cuota
         totalAmount: loan.monto_total,
-        totalInterest: loan.monto_interes,
+        totalInterest: loan.monto_total - loan.monto, // Calcular interés
         startDate: loan.fecha_inicio,
         status: loan.estado.toLowerCase(),
-        assignedCollector: loan.cobrador_asignado,
-        articleId: loan.articulo_id,
-        guarantees: loan.garantias,
-        observations: loan.observaciones,
-        purpose: loan.proposito,
-        preferredDay: loan.dia_cobro_preferido,
-        payments: (loan.pagos || []).map((p: any) => ({
+        assignedCollector: loan.cobrador_id,
+        articleId: undefined, // Ya no se guarda en la BD
+        guarantees: undefined, // Ya no se guarda en la BD
+        observations: undefined, // Ya no se guarda en la BD
+        purpose: undefined, // Ya no se guarda en la BD
+        preferredDay: loan.dia_cobro,
+        payments: (loan.cobros || []).map((p: any) => ({
           id: p.id,
-          loanId: p.credito_id,
-          clientId: p.cliente_id,
+          loanId: p.prestamo_id,
+          clientId: '', // Ya no viene de la BD
           amount: p.monto,
           method: p.metodo_pago,
-          date: p.fecha_pago,
-          collectorId: p.cobrador_id,
-          receiptNumber: p.numero_recibo,
-          isLate: p.es_mora,
-          synced: p.sincronizado,
+          date: p.fecha_cobro,
+          collectorId: p.creado_por,
+          receiptNumber: p.nota?.replace('Recibo: ', '') || '',
+          isLate: false, // Ya no viene de la BD
+          synced: true,
         })),
         createdAt: loan.created_at,
       }));
@@ -294,8 +336,31 @@ export default function LoansPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // DEPURACIÓN: Verificar qué valores se están enviando
+    console.log('=== DEPURACIÓN CREACIÓN DE PRÉSTAMO ===');
+    console.log('Cliente seleccionado (form.clientId):', form.clientId);
+    console.log('Usuario logueado (profile):', profile);
+    console.log('ID del cobrador (profile.id):', profile?.id);
+    console.log('Formulario completo:', form);
+    
     if (!form.clientId || !form.amount) {
       addNotification('error', 'Selecciona un cliente e ingresa el monto');
+      return;
+    }
+
+    // Validar que tengamos UUIDs válidos
+    if (!profile?.id) {
+      addNotification('error', 'Error: No se pudo obtener el ID del usuario logueado');
+      console.error('profile.id es undefined o null');
+      return;
+    }
+
+    // Validar que el cliente_id sea un UUID válido
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(form.clientId)) {
+      addNotification('error', 'Error: El ID del cliente no es válido');
+      console.error('cliente_id no es un UUID válido:', form.clientId);
       return;
     }
 
@@ -317,14 +382,25 @@ export default function LoansPage() {
     
     const installmentAmount = Math.round(totalAmount / totalCuotas);
 
+    console.log('Valores calculados:', {
+      amount,
+      interestRate,
+      term,
+      totalInterest,
+      totalAmount,
+      totalCuotas,
+      installmentAmount
+    });
+
     try {
       if (editing) {
         // Actualizar préstamo existente
+        console.log('Actualizando préstamo existente:', editing.id);
         const { error } = await supabase
           .from('prestamos')
           .update({
             cliente_id: form.clientId,
-            cobrador_id: form.assignedCollector || null,
+            cobrador_id: profile.id, // Usar profile.id en lugar de form.assignedCollector
             monto: amount,
             tasa_interes: interestRate,
             plazo_meses: term,
@@ -340,11 +416,24 @@ export default function LoansPage() {
         addNotification('success', 'Préstamo actualizado exitosamente');
       } else {
         // Crear nuevo préstamo
+        console.log('Creando nuevo préstamo con datos:', {
+          cliente_id: form.clientId,
+          cobrador_id: profile.id,
+          monto: amount,
+          tasa_interes: interestRate,
+          plazo_meses: term,
+          monto_total: totalAmount,
+          saldo_pendiente: totalAmount,
+          estado: 'activo',
+          dia_cobro: form.preferredDay.toLowerCase(),
+          fecha_inicio: form.startDate,
+        });
+
         const { data: newLoan, error: loanError } = await supabase
           .from('prestamos')
           .insert([{
             cliente_id: form.clientId,
-            cobrador_id: form.assignedCollector || null,
+            cobrador_id: profile.id, // Usar profile.id del usuario logueado
             monto: amount,
             tasa_interes: interestRate,
             plazo_meses: term,
@@ -357,7 +446,12 @@ export default function LoansPage() {
           .select()
           .single();
 
-        if (loanError) throw loanError;
+        if (loanError) {
+          console.error('Error al crear préstamo:', loanError);
+          throw loanError;
+        }
+
+        console.log('Préstamo creado exitosamente:', newLoan);
 
         // Generar cuotas
         const cuotas = [];
@@ -382,13 +476,19 @@ export default function LoansPage() {
           });
         }
 
+        console.log('Generando cuotas:', cuotas);
+
         // Insertar cuotas
         if (cuotas.length > 0) {
           const { error: cuotasError } = await supabase
             .from('cuotas')
             .insert(cuotas);
 
-          if (cuotasError) throw cuotasError;
+          if (cuotasError) {
+            console.error('Error al insertar cuotas:', cuotasError);
+            throw cuotasError;
+          }
+          console.log('Cuotas insertadas exitosamente');
         }
 
         // Si es artículo, actualizar estado del inventario
