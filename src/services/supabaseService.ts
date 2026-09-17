@@ -14,25 +14,28 @@ export async function fetchClientes(): Promise<Client[]> {
   return data || [];
 }
 
-export async function createCliente(client: Omit<Client, 'id' | 'createdAt'>): Promise<Client> {
+export async function createCliente(client: Omit<Client, 'id' | 'createdAt'>, createdBy?: string): Promise<Client> {
+  // Solo enviar las columnas que existen en la tabla de Supabase
   const { data, error } = await supabase
     .from('clientes')
     .insert({
       nombre: client.fullName,
       cedula: client.cedula,
-      direccion: client.address,
       telefono: client.phone,
-      whatsapp: client.whatsapp,
-      email: client.email,
-      garante: client.guarantor,
-      garante_telefono: client.guarantorPhone,
-      lat: client.lat,
-      lng: client.lng,
-      ocupacion: client.occupation,
-      ingreso_mensual: client.monthlyIncome,
-      referencias: client.references,
-      observaciones: client.observations,
-      nivel_riesgo: client.riskLevel,
+      email: client.email || null,
+      direccion: client.address,
+      creado_por: createdBy || null,
+      // Los siguientes campos NO existen en la tabla y se ignoran:
+      // - whatsapp
+      // - garante
+      // - garante_telefono
+      // - ocupacion
+      // - ingreso_mensual
+      // - lat
+      // - lng
+      // - referencias
+      // - observaciones
+      // - nivel_riesgo
     })
     .select()
     .single();
@@ -43,15 +46,25 @@ export async function createCliente(client: Omit<Client, 'id' | 'createdAt'>): P
 
 export async function updateCliente(id: string, updates: Partial<Client>): Promise<void> {
   const dbUpdates: any = {};
+  
+  // Solo actualizar las columnas que existen en la tabla de Supabase
   if (updates.fullName) dbUpdates.nombre = updates.fullName;
   if (updates.cedula) dbUpdates.cedula = updates.cedula;
   if (updates.address) dbUpdates.direccion = updates.address;
   if (updates.phone) dbUpdates.telefono = updates.phone;
-  if (updates.whatsapp) dbUpdates.whatsapp = updates.whatsapp;
   if (updates.email !== undefined) dbUpdates.email = updates.email;
-  if (updates.guarantor !== undefined) dbUpdates.garante = updates.guarantor;
-  if (updates.guarantorPhone !== undefined) dbUpdates.garante_telefono = updates.guarantorPhone;
-  if (updates.observations !== undefined) dbUpdates.observaciones = updates.observations;
+  
+  // Los siguientes campos NO existen en la tabla y se ignoran:
+  // - whatsapp
+  // - garante
+  // - garante_telefono
+  // - ocupacion
+  // - ingreso_mensual
+  // - lat
+  // - lng
+  // - referencias
+  // - observaciones
+  // - nivel_riesgo
 
   const { error } = await supabase
     .from('clientes')
@@ -71,23 +84,24 @@ export async function deleteCliente(id: string): Promise<void> {
 }
 
 function mapClienteFromDB(db: any): Client {
+  // Solo mapear las columnas que existen en la tabla de Supabase
   return {
     id: db.id,
     fullName: db.nombre,
     cedula: db.cedula,
     address: db.direccion || '',
     phone: db.telefono,
-    whatsapp: db.whatsapp || db.telefono,
+    whatsapp: db.telefono, // Usar el mismo teléfono como WhatsApp
     email: db.email,
-    guarantor: db.garante,
-    guarantorPhone: db.garante_telefono,
-    lat: db.lat,
-    lng: db.lng,
-    occupation: db.ocupacion,
-    monthlyIncome: db.ingreso_mensual,
-    references: db.referencias,
-    observations: db.observaciones,
-    riskLevel: db.nivel_riesgo,
+    guarantor: undefined, // No existe en la BD
+    guarantorPhone: undefined, // No existe en la BD
+    lat: undefined, // No existe en la BD
+    lng: undefined, // No existe en la BD
+    occupation: undefined, // No existe en la BD
+    monthlyIncome: undefined, // No existe en la BD
+    references: undefined, // No existe en la BD
+    observations: undefined, // No existe en la BD
+    riskLevel: undefined, // No existe en la BD
     createdAt: db.created_at,
   };
 }

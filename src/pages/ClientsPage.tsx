@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useStore } from '../store';
+import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabaseClient';
 import { Modal, Button, Input, Select, Card, Table, Badge, formatCurrency, formatDate, EmptyState } from '../components/ui';
 import { Plus, Search, MapPin, Phone, User, Edit2, Trash2, Eye, Users, Download } from 'lucide-react';
@@ -8,6 +9,7 @@ import type { Client } from '../types';
 
 export default function ClientsPage() {
   const { loans, routes, currentUser, addNotification } = useStore();
+  const { profile } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -26,7 +28,30 @@ export default function ClientsPage() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setClients(data || []);
+      
+      // Mapear datos de Supabase al formato de Client
+      // Solo usamos las columnas que existen en la tabla
+      const mappedClients: Client[] = (data || []).map(client => ({
+        id: client.id,
+        fullName: client.nombre,
+        cedula: client.cedula,
+        address: client.direccion || '',
+        phone: client.telefono,
+        whatsapp: client.telefono, // Usar el mismo teléfono como WhatsApp
+        email: client.email,
+        guarantor: undefined, // No existe en la BD
+        guarantorPhone: undefined, // No existe en la BD
+        lat: undefined, // No existe en la BD
+        lng: undefined, // No existe en la BD
+        occupation: undefined, // No existe en la BD
+        monthlyIncome: undefined, // No existe en la BD
+        references: undefined, // No existe en la BD
+        observations: undefined, // No existe en la BD
+        riskLevel: undefined, // No existe en la BD
+        createdAt: client.created_at,
+      }));
+
+      setClients(mappedClients);
     } catch (error: any) {
       console.error('Error al cargar clientes:', error);
       addNotification('error', 'Error al cargar clientes: ' + error.message);
@@ -86,26 +111,35 @@ export default function ClientsPage() {
       return;
     }
 
+    // Solo enviar las columnas que existen en la tabla de Supabase
     const clientData = {
       nombre: form.fullName,
       cedula: form.cedula,
-      direccion: form.address,
       telefono: form.phone,
-      whatsapp: form.whatsapp || form.phone,
       email: form.email || null,
-      garante: form.guarantor || null,
-      garante_telefono: form.guarantorPhone || null,
-      lat: form.lat ? parseFloat(form.lat) : null,
-      lng: form.lng ? parseFloat(form.lng) : null,
-      ocupacion: form.occupation || null,
-      ingreso_mensual: form.monthlyIncome ? parseFloat(form.monthlyIncome) : null,
-      referencias: form.references || null,
-      observaciones: form.observations || null,
+      direccion: form.address,
+      creado_por: profile?.id || null,
+      // Los siguientes campos NO existen en la tabla y se ignoran:
+      // - whatsapp
+      // - garante
+      // - garante_telefono
+      // - ocupacion
+      // - ingreso_mensual
+      // - lat
+      // - lng
+      // - referencias
+      // - observaciones
+      // - nivel_riesgo
     };
+
+    console.log('=== DEPURACIÓN CREACIÓN/EDICIÓN DE CLIENTE ===');
+    console.log('Datos a enviar a Supabase:', clientData);
+    console.log('Profile ID:', profile?.id);
 
     try {
       if (editing) {
         // Actualizar cliente existente
+        console.log('Actualizando cliente:', editing.id);
         const { error } = await supabase
           .from('clientes')
           .update(clientData)
@@ -115,6 +149,7 @@ export default function ClientsPage() {
         addNotification('success', 'Cliente actualizado exitosamente');
       } else {
         // Crear nuevo cliente
+        console.log('Creando nuevo cliente');
         const { error } = await supabase
           .from('clientes')
           .insert([clientData]);
