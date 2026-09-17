@@ -1,14 +1,117 @@
 import { useState } from 'react';
 import { useStore } from '../store';
-import { Modal, Button, Card, Badge, formatCurrency, formatDate } from '../components/ui';
-import { FileText, Download, Eye, Printer, CheckCircle } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabaseClient';
+import { Modal, Button, Card, Badge, Input, Select, formatCurrency, formatDate } from '../components/ui';
+import { FileText, Download, Eye, Printer, CheckCircle, Edit2, Send } from 'lucide-react';
+import type { Loan } from '../types';
 
 export default function ContractsPage() {
-  const { loans, clients, users } = useStore();
+  const { loans, clients, users, updateLoan, addNotification } = useStore();
+  const { profile } = useAuth();
   const [showPreview, setShowPreview] = useState<string | null>(null);
+  const [showEditModal, setShowEditModal] = useState<Loan | null>(null);
   const [template, setTemplate] = useState('standard');
+  const [editForm, setEditForm] = useState({
+    amount: '',
+    interestRate: '',
+    term: '',
+    clientId: '',
+  });
 
   const activeLoans = loans.filter(l => l.status === 'activo' || l.status === 'mora');
+
+  // Función para abrir modal de edición
+  const openEditModal = (loan: Loan) => {
+    const client = clients.find(c => c.id === loan.clientId);
+    setEditForm({
+      amount: loan.amount.toString(),
+      interestRate: loan.interestRate.toString(),
+      term: loan.term.toString(),
+      clientId: loan.clientId,
+    });
+    setShowEditModal(loan);
+  };
+
+  // Función para guardar cambios del contrato
+  const handleSaveEdit = async () => {
+    if (!showEditModal) return;
+
+    try {
+      const amount = parseFloat(editForm.amount);
+      const interestRate = parseFloat(editForm.interestRate);
+      const term = parseInt(editForm.term);
+      
+      // Calcular totales
+      const totalInterest = amount * (interestRate / 100) * term;
+      const totalAmount = amount + totalInterest;
+      const installmentAmount = totalAmount / term;
+
+      const updatedData = {
+        amount,
+        interestRate,
+        term,
+        clientId: editForm.clientId,
+        totalInterest,
+        totalAmount,
+        installmentAmount,
+      };
+
+      // Actualizar en Supabase
+      const { error } = await supabase
+        .from('creditos')
+        .update({
+          monto_principal: amount,
+          tasa_mensual: interestRate,
+          plazo_meses: term,
+          monto_interes: totalInterest,
+          monto_total: totalAmount,
+          valor_cuota: installmentAmount,
+          cliente_id: editForm.clientId,
+        })
+        .eq('id', showEditModal.id);
+
+      if (error) throw error;
+
+      // Actualizar en el store local
+      updateLoan(showEditModal.id, updatedData);
+
+      addNotification('success', 'Contrato actualizado exitosamente');
+      setShowEditModal(null);
+    } catch (error: any) {
+      console.error('Error al actualizar contrato:', error);
+      addNotification('error', `Error al actualizar: ${error.message}`);
+    }
+  };
+
+  // Función para compartir contrato por WhatsApp
+  const shareContractWhatsApp = (loanId: string) => {
+    const loan = loans.find(l => l.id === loanId);
+    const client = clients.find(c => c.id === loan?.clientId);
+    if (!loan || !client) return;
+
+    const message = `*CONTRATO DE PRÉSTAMO - YaraCredit*%0A%0A` +
+      `*Cliente:* ${client.fullName}%0A` +
+      `*Cédula:* ${client.cedula}%0A%0A` +
+      `*Monto del Préstamo:* ${formatCurrency(loan.amount)}%0A` +
+      `*Tasa de Interés:* ${loan.interestRate}% mensual%0A` +
+      `*Plazo:* ${loan.term} meses%0A` +
+      `*Total a Pagar:* ${formatCurrency(loan.totalAmount)}%0A%0A` +
+      `*Fecha de Inicio:* ${formatDate(loan.startDate)}%0A` +
+      `*Cuota:* ${formatCurrency(loan.installmentAmount)}%0A` +
+      `*Frecuencia:* ${loan.type}%0A%0A` +
+      `*Contrato No:* ${loan.id.toUpperCase().slice(0, 8)}`;
+
+    const phone = client.whatsapp || client.phone;
+    if (!phone) {
+      addNotification('error', 'El cliente no tiene número de WhatsApp registrado');
+      return;
+    }
+
+    const whatsappUrl = `https://wa.me/${phone.replace(/\D/g, '')}?text=${message}`;
+    window.open(whatsappUrl, '_blank');
+    addNotification('success', 'Abriendo WhatsApp para enviar contrato');
+  };
 
   const generateContractText = (loanId: string) => {
     const loan = loans.find(l => l.id === loanId);
@@ -102,6 +205,16 @@ ${client.guarantor || 'N/A'}
                   <Download size={14} /> PDF
                 </Button>
               </div>
+              <div className="flex gap-2 mt-2">
+                {profile?.role === 'admin' && (
+                  <Button size="sm" variant="outline" className="flex-1" onClick={() => openEditModal(loan)}>
+                    <Edit2 size={14} /> Editar
+                  </Button>
+                )}
+                <Button size="sm" variant="outline" className="flex-1" onClick={() => shareContractWhatsApp(loan.id)}>
+                  <Send size={14} /> WhatsApp
+                </Button>
+              </div>
             </Card>
           );
         })}
@@ -130,6 +243,69 @@ ${client.guarantor || 'N/A'}
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Edit Contract Modal */}
+      <Modal isOpen={!!showEditModal} onClose={() => setShowEditModal(null)} title="Editar Contrato" size="lg">
+        {showEditModal && (() => {
+          const client = clients.find(c => c.id === showEditModal.clientId);
+          return (
+            <div className="space-y-4">
+              <div className="bg-purple-50 p-4 rounded-xl">
+                <p className="text-sm font-medium text-purple-900">Cliente: {client?.fullName}</p>
+                <p className="text-xs text-purple-700">Cédula: {client?.cedula}</p>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  label="Monto del Préstamo (C$)"
+                  type="number"
+                  value={editForm.amount}
+                  onChange={e => setEditForm({...editForm, amount: e.target.value})}
+                />
+                <Input
+                  label="Tasa de Interés Mensual (%)"
+                  type="number"
+                  value={editForm.interestRate}
+                  onChange={e => setEditForm({...editForm, interestRate: e.target.value})}
+                />
+                <Input
+                  label="Plazo (meses)"
+                  type="number"
+                  value={editForm.term}
+                  onChange={e => setEditForm({...editForm, term: e.target.value})}
+                />
+                <Select
+                  label="Cliente"
+                  value={editForm.clientId}
+                  onChange={e => setEditForm({...editForm, clientId: e.target.value})}
+                  options={clients.map(c => ({ value: c.id, label: `${c.fullName} - ${c.cedula}` }))}
+                />
+              </div>
+
+              {editForm.amount && editForm.interestRate && editForm.term && (
+                <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
+                  <p className="text-sm font-medium text-blue-900 mb-2">Resumen Actualizado:</p>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <p className="text-blue-700">Monto: <span className="font-bold">{formatCurrency(parseFloat(editForm.amount))}</span></p>
+                    <p className="text-blue-700">Tasa: <span className="font-bold">{editForm.interestRate}% mensual</span></p>
+                    <p className="text-blue-700">Plazo: <span className="font-bold">{editForm.term} meses</span></p>
+                    <p className="text-blue-700">Interés Total: <span className="font-bold">{formatCurrency(parseFloat(editForm.amount) * (parseFloat(editForm.interestRate) / 100) * parseInt(editForm.term))}</span></p>
+                    <p className="text-blue-700">Total a Pagar: <span className="font-bold text-lg">{formatCurrency(parseFloat(editForm.amount) + (parseFloat(editForm.amount) * (parseFloat(editForm.interestRate) / 100) * parseInt(editForm.term)))}</span></p>
+                    <p className="text-blue-700">Cuota: <span className="font-bold text-lg">{formatCurrency((parseFloat(editForm.amount) + (parseFloat(editForm.amount) * (parseFloat(editForm.interestRate) / 100) * parseInt(editForm.term))) / parseInt(editForm.term))}</span></p>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <Button variant="secondary" onClick={() => setShowEditModal(null)}>Cancelar</Button>
+                <Button onClick={handleSaveEdit}>
+                  <CheckCircle size={16} /> Guardar Cambios
+                </Button>
+              </div>
+            </div>
+          );
+        })()}
       </Modal>
     </div>
   );
