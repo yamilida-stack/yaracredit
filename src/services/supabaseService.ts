@@ -304,30 +304,23 @@ export async function registerPayment(payment: {
   console.log('Datos del pago:', payment);
 
   try {
-    // 1. Generar número de recibo simple
-    const numeroRecibo = `R-${String(Date.now()).slice(-6)}`;
-    console.log('Número de recibo generado:', numeroRecibo);
-    
-    // 2. Insertar cobro directamente en la tabla cobros
+    // 1. Insertar pago directamente en la tabla pagos
     const { data, error } = await supabase
-      .from('cobros')
+      .from('pagos')
       .insert({
         prestamo_id: payment.creditoId,
         monto: payment.amount,
-        fecha_cobro: payment.date,
-        metodo_pago: payment.method,
-        nota: `Recibo: ${numeroRecibo}`,
-        creado_por: payment.collectorId,
+        fecha: payment.date,
       })
       .select()
       .single();
     
     if (error) {
-      console.error('Error al insertar cobro:', error);
+      console.error('Error al insertar pago:', error);
       throw error;
     }
 
-    console.log('Cobro insertado exitosamente:', data);
+    console.log('Pago insertado exitosamente:', data);
 
     // 3. Actualizar cuota si existe
     if (payment.cuotaId) {
@@ -345,27 +338,27 @@ export async function registerPayment(payment: {
       }
     }
 
-    // 4. Actualizar saldo pendiente del préstamo
-    console.log('Actualizando saldo del préstamo:', payment.creditoId);
+    // 4. Actualizar monto restante del préstamo
+    console.log('Actualizando monto restante del préstamo:', payment.creditoId);
     const { data: prestamoActual, error: prestamoError } = await supabase
       .from('prestamos')
-      .select('saldo_pendiente')
+      .select('monto_restante')
       .eq('id', payment.creditoId)
       .single();
     
     if (!prestamoError && prestamoActual) {
-      const nuevoSaldo = Math.max(0, prestamoActual.saldo_pendiente - payment.amount);
-      const nuevoEstado = nuevoSaldo === 0 ? 'pagado' : 'activo';
+      const nuevoMontoRestante = Math.max(0, prestamoActual.monto_restante - payment.amount);
+      const nuevoEstado = nuevoMontoRestante === 0 ? 'pagado' : 'activo';
       
       await supabase
         .from('prestamos')
         .update({
-          saldo_pendiente: nuevoSaldo,
+          monto_restante: nuevoMontoRestante,
           estado: nuevoEstado,
         })
         .eq('id', payment.creditoId);
       
-      console.log('Saldo actualizado:', nuevoSaldo, 'Estado:', nuevoEstado);
+      console.log('Monto restante actualizado:', nuevoMontoRestante, 'Estado:', nuevoEstado);
     }
 
     console.log('Pago registrado exitosamente');
@@ -381,10 +374,10 @@ function mapPagoFromDB(db: any): Payment {
     loanId: db.prestamo_id,
     clientId: '', // Ya no viene de la BD
     amount: db.monto,
-    method: db.metodo_pago,
-    date: db.fecha_cobro,
-    collectorId: db.creado_por,
-    receiptNumber: db.nota?.replace('Recibo: ', '') || '',
+    method: 'efectivo', // Valor por defecto, ya no viene de la BD
+    date: db.fecha,
+    collectorId: '', // Ya no viene de la BD
+    receiptNumber: `R-${db.id.slice(-6)}`, // Generar número de recibo basado en el ID
     isLate: false, // Ya no viene de la BD
     lat: undefined, // Ya no viene de la BD
     lng: undefined, // Ya no viene de la BD

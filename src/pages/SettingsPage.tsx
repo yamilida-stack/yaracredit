@@ -33,44 +33,25 @@ export default function SettingsPage() {
       try {
         setLoading(true);
         const { data, error } = await supabase
-          .from('configuracion')
-          .select('*');
+          .from('configuraciones')
+          .select('*')
+          .eq('id', 1)
+          .single();
 
-        if (error) throw error;
+        if (error && error.code !== 'PGRST116') throw error; // PGRST116 = no rows returned
 
-        if (data && data.length > 0) {
-          // Convertir array de configuraciones a objeto
-          const configMap: any = {};
-          data.forEach((item: any) => {
-            let valor = item.valor;
-            
-            // Convertir tipos según el campo 'tipo'
-            if (item.tipo === 'number') {
-              valor = parseFloat(valor);
-            } else if (item.tipo === 'boolean') {
-              valor = valor === 'true';
-            } else if (item.tipo === 'json') {
-              try {
-                valor = JSON.parse(valor);
-              } catch (e) {
-                console.error('Error parsing JSON config:', e);
-              }
-            }
-            
-            configMap[item.clave] = valor;
-          });
-
+        if (data) {
           // Actualizar estado local con las configuraciones cargadas
           const newSettings = {
             ...settings,
-            companyName: configMap.nombre_empresa || settings.companyName,
-            companyPhone: configMap.telefono_empresa || settings.companyPhone,
-            companyAddress: configMap.direccion_empresa || settings.companyAddress,
-            defaultInterestRate: configMap.tasa_interes_default || settings.defaultInterestRate,
-            defaultTerm: configMap.plazo_default || settings.defaultTerm,
-            gracePeriodDays: configMap.dias_gracia || settings.gracePeriodDays,
-            currency: configMap.moneda || settings.currency,
-            darkMode: configMap.modo_oscuro !== undefined ? configMap.modo_oscuro : settings.darkMode,
+            companyName: data.nombre_empresa || settings.companyName,
+            companyPhone: data.telefono_empresa || settings.companyPhone,
+            companyAddress: data.direccion_empresa || settings.companyAddress,
+            defaultInterestRate: data.tasa_interes_default || settings.defaultInterestRate,
+            defaultTerm: data.plazo_default || settings.defaultTerm,
+            gracePeriodDays: data.dias_gracia || settings.gracePeriodDays,
+            currency: data.moneda || settings.currency,
+            darkMode: data.modo_oscuro !== undefined ? data.modo_oscuro : settings.darkMode,
           };
 
           setLocalSettings(newSettings);
@@ -97,33 +78,25 @@ export default function SettingsPage() {
     try {
       setSaving(true);
 
-      // Preparar las configuraciones para guardar
-      const configsToSave = [
-        { clave: 'nombre_empresa', valor: localSettings.companyName, tipo: 'text' },
-        { clave: 'telefono_empresa', valor: localSettings.companyPhone, tipo: 'text' },
-        { clave: 'direccion_empresa', valor: localSettings.companyAddress, tipo: 'text' },
-        { clave: 'tasa_interes_default', valor: localSettings.defaultInterestRate.toString(), tipo: 'number' },
-        { clave: 'plazo_default', valor: localSettings.defaultTerm.toString(), tipo: 'number' },
-        { clave: 'dias_gracia', valor: localSettings.gracePeriodDays.toString(), tipo: 'number' },
-        { clave: 'moneda', valor: localSettings.currency, tipo: 'text' },
-        { clave: 'modo_oscuro', valor: localSettings.darkMode.toString(), tipo: 'boolean' },
-      ];
+      // Guardar toda la configuración en un solo registro con id: 1
+      const { error } = await supabase
+        .from('configuraciones')
+        .upsert({
+          id: 1,
+          nombre_empresa: localSettings.companyName,
+          telefono_empresa: localSettings.companyPhone,
+          direccion_empresa: localSettings.companyAddress,
+          tasa_interes_default: localSettings.defaultInterestRate,
+          plazo_default: localSettings.defaultTerm,
+          dias_gracia: localSettings.gracePeriodDays,
+          moneda: localSettings.currency,
+          modo_oscuro: localSettings.darkMode,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'id'
+        });
 
-      // Guardar cada configuración usando upsert
-      const updates = configsToSave.map(config =>
-        supabase
-          .from('configuracion')
-          .upsert({
-            clave: config.clave,
-            valor: config.valor,
-            tipo: config.tipo,
-            updated_at: new Date().toISOString()
-          }, {
-            onConflict: 'clave'
-          })
-      );
-
-      await Promise.all(updates);
+      if (error) throw error;
 
       // Actualizar el store local
       updateSettings(localSettings);
