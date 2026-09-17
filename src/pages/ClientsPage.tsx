@@ -155,7 +155,6 @@ export default function ClientsPage() {
       telefono: form.phone,
       email: form.email || null,
       direccion: form.address,
-      creado_por: profile?.id || null,
       // Los siguientes campos NO existen en la tabla y se ignoran:
       // - whatsapp
       // - garante
@@ -183,7 +182,7 @@ export default function ClientsPage() {
         console.log('Creando nuevo cliente');
         const { error } = await supabase
           .from('clientes')
-          .insert([clientData]);
+          .insert([{ ...clientData, creado_por: profile?.id || null }]);
 
         if (error) throw error;
         addNotification('success', 'Cliente creado exitosamente');
@@ -220,7 +219,7 @@ export default function ClientsPage() {
           <Button variant="outline" onClick={() => exportClientsPDF(filtered)}>
             <Download size={18} /> Exportar PDF
           </Button>
-          {currentUser?.role !== 'solo_lectura' && (
+          {profile?.role !== 'solo_lectura' && (
             <Button onClick={openCreate}><Plus size={18} /> Nuevo Cliente</Button>
           )}
         </div>

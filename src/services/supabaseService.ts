@@ -305,15 +305,30 @@ export async function registerPayment(payment: {
 
   try {
     // 1. Insertar pago directamente en la tabla pagos
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('pagos')
       .insert({
         prestamo_id: payment.creditoId,
         monto: payment.amount,
+        metodo_pago: payment.method,
         fecha: payment.date,
       })
       .select()
       .single();
+
+    if (error?.code === '42703' || error?.code === 'PGRST204') {
+      const fallback = await supabase
+        .from('pagos')
+        .insert({
+          prestamo_id: payment.creditoId,
+          monto: payment.amount,
+          fecha: payment.date,
+        })
+        .select()
+        .single();
+      data = fallback.data;
+      error = fallback.error;
+    }
     
     if (error) {
       console.error('Error al insertar pago:', error);
@@ -351,7 +366,8 @@ export async function registerPayment(payment: {
       throw new Error('No se encontró el préstamo para actualizar su saldo');
     }
 
-    const nuevoMontoRestante = Math.max(0, Number(prestamoActual.monto_restante) - payment.amount);
+    const saldoActual = Number(prestamoActual.monto_restante ?? prestamoActual.saldo_pendiente ?? 0);
+    const nuevoMontoRestante = Math.max(0, saldoActual - payment.amount);
     const nuevoEstado = nuevoMontoRestante <= 0 ? 'pagado' : 'activo';
 
     const { error: updateError } = await supabase
