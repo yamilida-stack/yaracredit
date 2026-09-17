@@ -3,6 +3,7 @@ import { useStore } from '../store';
 import { Card, Badge, Button, formatCurrency, formatDate, Select } from '../components/ui';
 import { BarChart3, TrendingUp, TrendingDown, DollarSign, Users, Clock, PieChart as PieIcon, Download } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
+import { exportClientsPDF, exportLoansPDF, generatePDF } from '../utils/pdfGenerator';
 
 export default function ReportsPage() {
   const { loans, clients, cashMovements, users } = useStore();
@@ -56,6 +57,39 @@ export default function ReportsPage() {
     { month: 'Dic', ingresos: 95000, egresos: 20000 },
   ];
 
+  // Funciones de exportación PDF
+  const handleExportClients = () => {
+    exportClientsPDF(clients);
+  };
+
+  const handleExportLoans = () => {
+    exportLoansPDF(loans, clients);
+  };
+
+  const handleExportPayments = () => {
+    const headers = ['Fecha', 'Cliente', 'Monto', 'Método', 'Recibo'];
+    const data = allPayments.map(payment => {
+      const loan = loans.find(l => l.id === payment.loanId);
+      const client = clients.find(c => c.id === loan?.clientId);
+      return [
+        formatDate(payment.date),
+        client?.fullName || 'N/A',
+        `C$ ${payment.amount.toLocaleString('es-NI')}`,
+        payment.method,
+        payment.receiptNumber
+      ];
+    });
+
+    generatePDF({
+      title: 'Reporte de Pagos',
+      subtitle: `Total: ${allPayments.length} pagos | Total Cobrado: C$ ${totalCollected.toLocaleString('es-NI')}`,
+      filename: `pagos_${new Date().toISOString().split('T')[0]}`,
+      headers,
+      data,
+      footer: 'YaraCredit - Sistema de Gestión de Préstamos'
+    });
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -66,7 +100,31 @@ export default function ReportsPage() {
         </div>
         <div className="flex gap-2">
           <Select options={[{ value: 'week', label: 'Semana' }, { value: 'month', label: 'Mes' }, { value: 'all', label: 'Todo' }]} value={period} onChange={e => setPeriod(e.target.value)} />
-          <Button variant="outline" size="sm"><Download size={14} /> Exportar</Button>
+          <div className="relative group">
+            <Button variant="outline" size="sm">
+              <Download size={14} /> Exportar PDF
+            </Button>
+            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10">
+              <button
+                onClick={handleExportClients}
+                className="w-full px-4 py-2 text-left text-sm hover:bg-purple-50 flex items-center gap-2"
+              >
+                <Users size={16} /> Exportar Clientes
+              </button>
+              <button
+                onClick={handleExportLoans}
+                className="w-full px-4 py-2 text-left text-sm hover:bg-purple-50 flex items-center gap-2"
+              >
+                <DollarSign size={16} /> Exportar Préstamos
+              </button>
+              <button
+                onClick={handleExportPayments}
+                className="w-full px-4 py-2 text-left text-sm hover:bg-purple-50 flex items-center gap-2"
+              >
+                <TrendingUp size={16} /> Exportar Pagos
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 

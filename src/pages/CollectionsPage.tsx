@@ -3,7 +3,8 @@ import { useStore } from '../store';
 import { registerPayment } from '../services/supabaseService';
 import { Modal, Button, Input, Select, Card, Badge, formatCurrency, formatDate } from '../components/ui';
 import ReceiptComponent from '../components/Receipt';
-import { Receipt, MapPin, Phone, CheckCircle, Printer, Send, DollarSign, Clock } from 'lucide-react';
+import { Receipt, MapPin, Phone, CheckCircle, Printer, Send, DollarSign, Clock, Download } from 'lucide-react';
+import { exportReceiptPDF } from '../utils/pdfGenerator';
 import type { PaymentMethod } from '../types';
 
 export default function CollectionsPage() {
@@ -268,10 +269,17 @@ export default function CollectionsPage() {
                   <Button variant="outline" size="sm" className="flex-1" onClick={handlePrint}>
                     <Printer size={14} /> Imprimir
                   </Button>
-                  <Button variant="outline" size="sm" className="flex-1" onClick={() => handleWhatsApp(client?.whatsapp || client?.phone || '', data)}>
-                    <Send size={14} /> Compartir por WhatsApp
+                  <Button variant="outline" size="sm" className="flex-1" onClick={() => {
+                    if (payment && client && loan && collector) {
+                      exportReceiptPDF(payment, client, loan, collector);
+                    }
+                  }}>
+                    <Download size={14} /> PDF
                   </Button>
                 </div>
+                <Button variant="outline" size="sm" className="w-full" onClick={() => handleWhatsApp(client?.whatsapp || client?.phone || '', data)}>
+                  <Send size={14} /> Compartir por WhatsApp
+                </Button>
               </div>
             </div>
           );

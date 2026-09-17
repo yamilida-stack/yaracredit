@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { useStore } from '../store';
 import { Modal, Button, Input, Select, Card, Table, Badge, formatCurrency, formatDate, EmptyState } from '../components/ui';
-import { Plus, Search, DollarSign, Eye, FileText, Trash2, Calendar, Clock, Edit2 } from 'lucide-react';
+import { Plus, Search, DollarSign, Eye, FileText, Trash2, Calendar, Clock, Edit2, Download } from 'lucide-react';
+import { exportLoansPDF } from '../utils/pdfGenerator';
 import type { Loan, LoanType, LoanModality } from '../types';
 
 type PaymentFrequency = 'Semanal' | 'Quincenal' | 'Mensual';
@@ -292,6 +293,9 @@ export default function LoansPage() {
           { value: 'mora', label: 'En Mora' },
           { value: 'cancelado', label: 'Cancelados' },
         ]} value={statusFilter} onChange={e => setStatusFilter(e.target.value)} />
+        <Button variant="outline" onClick={() => exportLoansPDF(filtered, clients)}>
+          <Download size={18} /> Exportar PDF
+        </Button>
         {currentUser?.role !== 'solo_lectura' && (
           <Button onClick={openCreate}><Plus size={18} /> Nuevo Préstamo</Button>
         )}

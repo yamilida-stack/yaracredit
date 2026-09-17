@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabaseClient';
 import { Modal, Button, Card, Badge, Input, Select, formatCurrency, formatDate } from '../components/ui';
 import { FileText, Download, Eye, Printer, CheckCircle, Edit2, Send } from 'lucide-react';
+import { exportContractPDF } from '../utils/pdfGenerator';
 import type { Loan } from '../types';
 
 export default function ContractsPage() {
@@ -195,12 +196,9 @@ ${client.guarantor || 'N/A'}
                   <Eye size={14} /> Ver
                 </Button>
                 <Button size="sm" variant="outline" className="flex-1" onClick={() => {
-                  const text = generateContractText(loan.id);
-                  const blob = new Blob([text], { type: 'text/plain' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url; a.download = `Contrato_${client?.fullName.replace(/\s/g, '_')}.txt`;
-                  a.click(); URL.revokeObjectURL(url);
+                  if (loan && client) {
+                    exportContractPDF(loan, client);
+                  }
                 }}>
                   <Download size={14} /> PDF
                 </Button>

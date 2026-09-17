@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useStore } from '../store';
 import { Modal, Button, Input, Select, Card, Table, Badge, formatCurrency, formatDate, EmptyState } from '../components/ui';
-import { Plus, Search, MapPin, Phone, User, Edit2, Trash2, Eye, Users } from 'lucide-react';
+import { Plus, Search, MapPin, Phone, User, Edit2, Trash2, Eye, Users, Download } from 'lucide-react';
+import { exportClientsPDF } from '../utils/pdfGenerator';
 import type { Client } from '../types';
 
 export default function ClientsPage() {
@@ -103,9 +104,14 @@ export default function ClientsPage() {
             className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
           />
         </div>
-        {currentUser?.role !== 'solo_lectura' && (
-          <Button onClick={openCreate}><Plus size={18} /> Nuevo Cliente</Button>
-        )}
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => exportClientsPDF(filtered)}>
+            <Download size={18} /> Exportar PDF
+          </Button>
+          {currentUser?.role !== 'solo_lectura' && (
+            <Button onClick={openCreate}><Plus size={18} /> Nuevo Cliente</Button>
+          )}
+        </div>
       </div>
 
       {/* Stats */}
