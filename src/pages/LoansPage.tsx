@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../store';
+import { supabase } from '../lib/supabaseClient';
 import { Modal, Button, Input, Select, Card, Table, Badge, formatCurrency, formatDate, EmptyState } from '../components/ui';
 import { Plus, Search, DollarSign, Eye, FileText, Trash2, Calendar, Clock, Edit2, Download } from 'lucide-react';
 import { exportLoansPDF } from '../utils/pdfGenerator';
@@ -15,12 +16,78 @@ interface AmortizationSchedule {
 }
 
 export default function LoansPage() {
-  const { loans, clients, articles, addLoan, updateLoan, deleteLoan, addNotification, currentUser } = useStore();
+  const { clients, articles, addNotification, currentUser } = useStore();
+  const [loans, setLoans] = useState<Loan[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showModal, setShowModal] = useState(false);
   const [showDetail, setShowDetail] = useState<Loan | null>(null);
   const [editing, setEditing] = useState<Loan | null>(null);
+
+  // Cargar préstamos desde Supabase
+  useEffect(() => {
+    loadLoans();
+  }, []);
+
+  const loadLoans = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('creditos')
+        .select(`
+          *,
+          clientes!inner(*),
+          cuotas(*),
+          pagos(*)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      
+      // Mapear datos de Supabase al formato de Loan
+      const mappedLoans: Loan[] = (data || []).map(loan => ({
+        id: loan.id,
+        clientId: loan.cliente_id,
+        type: loan.tipo,
+        modality: loan.modalidad,
+        amount: loan.monto_principal,
+        interestRate: loan.tasa_mensual,
+        term: loan.plazo_meses,
+        installmentAmount: loan.valor_cuota,
+        totalAmount: loan.monto_total,
+        totalInterest: loan.monto_interes,
+        startDate: loan.fecha_inicio,
+        status: loan.estado.toLowerCase(),
+        assignedCollector: loan.cobrador_asignado,
+        articleId: loan.articulo_id,
+        guarantees: loan.garantias,
+        observations: loan.observaciones,
+        purpose: loan.proposito,
+        preferredDay: loan.dia_cobro_preferido,
+        payments: (loan.pagos || []).map((p: any) => ({
+          id: p.id,
+          loanId: p.credito_id,
+          clientId: p.cliente_id,
+          amount: p.monto,
+          method: p.metodo_pago,
+          date: p.fecha_pago,
+          collectorId: p.cobrador_id,
+          receiptNumber: p.numero_recibo,
+          isLate: p.es_mora,
+          synced: p.sincronizado,
+        })),
+        createdAt: loan.created_at,
+      }));
+
+      setLoans(mappedLoans);
+    } catch (error: any) {
+      console.error('Error al cargar préstamos:', error);
+      addNotification('error', 'Error al cargar préstamos: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
   
   const [form, setForm] = useState({
     clientId: '',
@@ -225,53 +292,138 @@ export default function LoansPage() {
     setShowModal(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.clientId || !form.amount) {
       addNotification('error', 'Selecciona un cliente e ingresa el monto');
       return;
     }
+
+    // Calcular valores del préstamo
+    const amount = Number(form.amount);
+    const interestRate = Number(form.interestRate);
+    const term = Number(form.termMonths);
+    const frequency = form.frequency.toLowerCase() as 'semanal' | 'quincenal' | 'mensual';
     
-    if (editing) {
-      // Editar préstamo existente
-      updateLoan(editing.id, {
-        clientId: form.clientId,
-        type: form.frequency.toLowerCase() as LoanType,
-        modality: form.modality,
-        amount: Number(form.amount),
-        interestRate: Number(form.interestRate),
-        term: Number(form.termMonths),
-        startDate: form.startDate,
-        assignedCollector: form.assignedCollector || undefined,
-        articleId: form.modality === 'articulo' ? form.articleId || undefined : undefined,
-        guarantees: form.guarantees ? [form.guarantees] : undefined,
-        observations: form.observations || undefined,
-        purpose: form.purpose || undefined,
-        preferredDay: form.preferredDay,
-      });
-      addNotification('success', 'Préstamo actualizado exitosamente');
-    } else {
-      // Crear nuevo préstamo
-      addLoan({
-        clientId: form.clientId,
-        type: form.frequency.toLowerCase() as LoanType,
-        modality: form.modality,
-        amount: Number(form.amount),
-        interestRate: Number(form.interestRate),
-        term: Number(form.termMonths),
-        startDate: form.startDate,
-        status: 'activo',
-        assignedCollector: form.assignedCollector || undefined,
-        articleId: form.modality === 'articulo' ? form.articleId || undefined : undefined,
-        guarantees: form.guarantees ? [form.guarantees] : undefined,
-        observations: form.observations || undefined,
-        purpose: form.purpose || undefined,
-        preferredDay: form.preferredDay,
-      });
-      addNotification('success', 'Préstamo creado exitosamente');
+    // Calcular interés y totales
+    const totalInterestPercent = interestRate * term;
+    const totalInterest = amount * (totalInterestPercent / 100);
+    const totalAmount = amount + totalInterest;
+    
+    // Calcular número de cuotas
+    let totalCuotas = term;
+    if (frequency === 'semanal') totalCuotas = term * 4;
+    if (frequency === 'quincenal') totalCuotas = term * 2;
+    
+    const installmentAmount = Math.round(totalAmount / totalCuotas);
+
+    try {
+      if (editing) {
+        // Actualizar préstamo existente
+        const { error } = await supabase
+          .from('creditos')
+          .update({
+            cliente_id: form.clientId,
+            tipo: frequency,
+            modalidad: form.modality,
+            monto_principal: amount,
+            tasa_mensual: interestRate,
+            plazo_meses: term,
+            monto_interes: totalInterest,
+            monto_total: totalAmount,
+            valor_cuota: installmentAmount,
+            total_cuotas: totalCuotas,
+            fecha_inicio: form.startDate,
+            dia_cobro_preferido: form.preferredDay,
+            cobrador_asignado: form.assignedCollector || null,
+            articulo_id: form.modality === 'articulo' ? form.articleId || null : null,
+            garantias: form.guarantees ? [form.guarantees] : null,
+            observaciones: form.observations || null,
+            proposito: form.purpose || null,
+          })
+          .eq('id', editing.id);
+
+        if (error) throw error;
+        addNotification('success', 'Préstamo actualizado exitosamente');
+      } else {
+        // Crear nuevo préstamo
+        const { data: newLoan, error: loanError } = await supabase
+          .from('creditos')
+          .insert([{
+            cliente_id: form.clientId,
+            tipo: frequency,
+            modalidad: form.modality,
+            monto_principal: amount,
+            tasa_mensual: interestRate,
+            plazo_meses: term,
+            monto_interes: totalInterest,
+            monto_total: totalAmount,
+            valor_cuota: installmentAmount,
+            total_cuotas: totalCuotas,
+            fecha_inicio: form.startDate,
+            dia_cobro_preferido: form.preferredDay,
+            estado: 'ACTIVO',
+            cobrador_asignado: form.assignedCollector || null,
+            articulo_id: form.modality === 'articulo' ? form.articleId || null : null,
+            garantias: form.guarantees ? [form.guarantees] : null,
+            observaciones: form.observations || null,
+            proposito: form.purpose || null,
+          }])
+          .select()
+          .single();
+
+        if (loanError) throw loanError;
+
+        // Generar cuotas
+        const cuotas = [];
+        const startDate = new Date(form.startDate);
+        
+        for (let i = 1; i <= totalCuotas; i++) {
+          const dueDate = new Date(startDate);
+          
+          if (frequency === 'semanal') {
+            dueDate.setDate(dueDate.getDate() + (i - 1) * 7);
+          } else if (frequency === 'quincenal') {
+            dueDate.setDate(dueDate.getDate() + (i - 1) * 14);
+          } else {
+            dueDate.setMonth(dueDate.getMonth() + (i - 1));
+          }
+
+          cuotas.push({
+            credito_id: newLoan.id,
+            numero_cuota: i,
+            fecha_cobro: dueDate.toISOString().split('T')[0],
+            monto_cuota: installmentAmount,
+          });
+        }
+
+        // Insertar cuotas
+        if (cuotas.length > 0) {
+          const { error: cuotasError } = await supabase
+            .from('cuotas')
+            .insert(cuotas);
+
+          if (cuotasError) throw cuotasError;
+        }
+
+        // Si es artículo, actualizar estado del inventario
+        if (form.modality === 'articulo' && form.articleId) {
+          await supabase
+            .from('inventario')
+            .update({ estado: 'Entregado' })
+            .eq('id', form.articleId);
+        }
+
+        addNotification('success', 'Préstamo creado exitosamente');
+      }
+
+      // Recargar lista de préstamos
+      await loadLoans();
+      setShowModal(false);
+    } catch (error: any) {
+      console.error('Error al guardar préstamo:', error);
+      addNotification('error', 'Error: ' + error.message);
     }
-    
-    setShowModal(false);
   };
 
   const collectors = currentUser?.role === 'admin' || currentUser?.role === 'gerente'
@@ -420,10 +572,22 @@ export default function LoansPage() {
                       )}
                       {currentUser?.role === 'admin' && (
                         <button
-                          onClick={() => {
-                            if (confirm('¿Estás seguro de eliminar este préstamo? Esta acción no se puede deshacer.')) {
-                              deleteLoan(loan.id);
-                              addNotification('success', 'Préstamo eliminado');
+                          onClick={async () => {
+                            if (!confirm('¿Estás seguro de eliminar este préstamo? Esta acción no se puede deshacer.')) return;
+                            
+                            try {
+                              const { error } = await supabase
+                                .from('creditos')
+                                .delete()
+                                .eq('id', loan.id);
+
+                              if (error) throw error;
+
+                              addNotification('success', 'Préstamo eliminado exitosamente');
+                              await loadLoans();
+                            } catch (error: any) {
+                              console.error('Error al eliminar préstamo:', error);
+                              addNotification('error', 'Error: ' + error.message);
                             }
                           }}
                           className="p-2 hover:bg-red-50 rounded-lg text-red-600"

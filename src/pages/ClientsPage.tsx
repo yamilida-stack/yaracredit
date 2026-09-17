@@ -1,13 +1,39 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useStore } from '../store';
+import { supabase } from '../lib/supabaseClient';
 import { Modal, Button, Input, Select, Card, Table, Badge, formatCurrency, formatDate, EmptyState } from '../components/ui';
 import { Plus, Search, MapPin, Phone, User, Edit2, Trash2, Eye, Users, Download } from 'lucide-react';
 import { exportClientsPDF } from '../utils/pdfGenerator';
 import type { Client } from '../types';
 
 export default function ClientsPage() {
-  const { clients, loans, routes, addClient, updateClient, deleteClient, currentUser, addNotification } = useStore();
+  const { loans, routes, currentUser, addNotification } = useStore();
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+
+  // Cargar clientes desde Supabase
+  useEffect(() => {
+    loadClients();
+  }, []);
+
+  const loadClients = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('clientes')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setClients(data || []);
+    } catch (error: any) {
+      console.error('Error al cargar clientes:', error);
+      addNotification('error', 'Error al cargar clientes: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
   const [showModal, setShowModal] = useState(false);
   const [showDetail, setShowDetail] = useState<Client | null>(null);
   const [editing, setEditing] = useState<Client | null>(null);
@@ -53,38 +79,75 @@ export default function ClientsPage() {
     setShowModal(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.fullName || !form.cedula || !form.phone) {
       addNotification('error', 'Nombre, cédula y teléfono son obligatorios');
       return;
     }
-    const data = {
-      fullName: form.fullName, cedula: form.cedula, address: form.address,
-      phone: form.phone, whatsapp: form.whatsapp || form.phone,
-      email: form.email || undefined, guarantor: form.guarantor || undefined,
-      guarantorPhone: form.guarantorPhone || undefined,
-      lat: form.lat ? parseFloat(form.lat) : undefined,
-      lng: form.lng ? parseFloat(form.lng) : undefined,
-      occupation: form.occupation || undefined,
-      monthlyIncome: form.monthlyIncome ? parseFloat(form.monthlyIncome) : undefined,
-      references: form.references || undefined,
-      observations: form.observations || undefined,
+
+    const clientData = {
+      nombre_completo: form.fullName,
+      cedula: form.cedula,
+      direccion: form.address,
+      telefono: form.phone,
+      whatsapp: form.whatsapp || form.phone,
+      email: form.email || null,
+      garante: form.guarantor || null,
+      garante_telefono: form.guarantorPhone || null,
+      lat: form.lat ? parseFloat(form.lat) : null,
+      lng: form.lng ? parseFloat(form.lng) : null,
+      ocupacion: form.occupation || null,
+      ingreso_mensual: form.monthlyIncome ? parseFloat(form.monthlyIncome) : null,
+      referencias: form.references || null,
+      observaciones: form.observations || null,
     };
-    if (editing) {
-      updateClient(editing.id, data);
-      addNotification('success', 'Cliente actualizado');
-    } else {
-      addClient(data);
-      addNotification('success', 'Cliente creado exitosamente');
+
+    try {
+      if (editing) {
+        // Actualizar cliente existente
+        const { error } = await supabase
+          .from('clientes')
+          .update(clientData)
+          .eq('id', editing.id);
+
+        if (error) throw error;
+        addNotification('success', 'Cliente actualizado exitosamente');
+      } else {
+        // Crear nuevo cliente
+        const { error } = await supabase
+          .from('clientes')
+          .insert([clientData]);
+
+        if (error) throw error;
+        addNotification('success', 'Cliente creado exitosamente');
+      }
+
+      // Recargar lista de clientes
+      await loadClients();
+      setShowModal(false);
+    } catch (error: any) {
+      console.error('Error al guardar cliente:', error);
+      addNotification('error', 'Error: ' + error.message);
     }
-    setShowModal(false);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('¿Estás seguro de eliminar este cliente?')) {
-      deleteClient(id);
-      addNotification('success', 'Cliente eliminado');
+  const handleDelete = async (id: string) => {
+    if (!confirm('¿Estás seguro de eliminar este cliente?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('clientes')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      addNotification('success', 'Cliente eliminado exitosamente');
+      await loadClients();
+    } catch (error: any) {
+      console.error('Error al eliminar cliente:', error);
+      addNotification('error', 'Error: ' + error.message);
     }
   };
 
