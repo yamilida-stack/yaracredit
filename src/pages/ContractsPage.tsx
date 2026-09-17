@@ -60,14 +60,13 @@ export default function ContractsPage() {
 
       // Actualizar en Supabase
       const { error } = await supabase
-        .from('creditos')
+        .from('prestamos')
         .update({
-          monto_principal: amount,
-          tasa_mensual: interestRate,
+          monto: amount,
+          tasa_interes: interestRate,
           plazo_meses: term,
-          monto_interes: totalInterest,
           monto_total: totalAmount,
-          valor_cuota: installmentAmount,
+          saldo_pendiente: totalAmount,
           cliente_id: editForm.clientId,
         })
         .eq('id', showEditModal.id);

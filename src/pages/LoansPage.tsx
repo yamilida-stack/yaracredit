@@ -34,12 +34,12 @@ export default function LoansPage() {
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('creditos')
+        .from('prestamos')
         .select(`
           *,
           clientes!inner(*),
           cuotas(*),
-          pagos(*)
+          cobros(*)
         `)
         .order('created_at', { ascending: false });
 
@@ -321,25 +321,18 @@ export default function LoansPage() {
       if (editing) {
         // Actualizar préstamo existente
         const { error } = await supabase
-          .from('creditos')
+          .from('prestamos')
           .update({
             cliente_id: form.clientId,
-            tipo: frequency,
-            modalidad: form.modality,
-            monto_principal: amount,
-            tasa_mensual: interestRate,
+            cobrador_id: form.assignedCollector || null,
+            monto: amount,
+            tasa_interes: interestRate,
             plazo_meses: term,
-            monto_interes: totalInterest,
             monto_total: totalAmount,
-            valor_cuota: installmentAmount,
-            total_cuotas: totalCuotas,
+            saldo_pendiente: totalAmount,
+            estado: 'activo',
+            dia_cobro: form.preferredDay.toLowerCase(),
             fecha_inicio: form.startDate,
-            dia_cobro_preferido: form.preferredDay,
-            cobrador_asignado: form.assignedCollector || null,
-            articulo_id: form.modality === 'articulo' ? form.articleId || null : null,
-            garantias: form.guarantees ? [form.guarantees] : null,
-            observaciones: form.observations || null,
-            proposito: form.purpose || null,
           })
           .eq('id', editing.id);
 
@@ -348,26 +341,18 @@ export default function LoansPage() {
       } else {
         // Crear nuevo préstamo
         const { data: newLoan, error: loanError } = await supabase
-          .from('creditos')
+          .from('prestamos')
           .insert([{
             cliente_id: form.clientId,
-            tipo: frequency,
-            modalidad: form.modality,
-            monto_principal: amount,
-            tasa_mensual: interestRate,
+            cobrador_id: form.assignedCollector || null,
+            monto: amount,
+            tasa_interes: interestRate,
             plazo_meses: term,
-            monto_interes: totalInterest,
             monto_total: totalAmount,
-            valor_cuota: installmentAmount,
-            total_cuotas: totalCuotas,
+            saldo_pendiente: totalAmount,
+            estado: 'activo',
+            dia_cobro: form.preferredDay.toLowerCase(),
             fecha_inicio: form.startDate,
-            dia_cobro_preferido: form.preferredDay,
-            estado: 'ACTIVO',
-            cobrador_asignado: form.assignedCollector || null,
-            articulo_id: form.modality === 'articulo' ? form.articleId || null : null,
-            garantias: form.guarantees ? [form.guarantees] : null,
-            observaciones: form.observations || null,
-            proposito: form.purpose || null,
           }])
           .select()
           .single();
@@ -390,7 +375,7 @@ export default function LoansPage() {
           }
 
           cuotas.push({
-            credito_id: newLoan.id,
+            prestamo_id: newLoan.id,
             numero_cuota: i,
             fecha_cobro: dueDate.toISOString().split('T')[0],
             monto_cuota: installmentAmount,
@@ -577,7 +562,7 @@ export default function LoansPage() {
                             
                             try {
                               const { error } = await supabase
-                                .from('creditos')
+                                .from('prestamos')
                                 .delete()
                                 .eq('id', loan.id);
 

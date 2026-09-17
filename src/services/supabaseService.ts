@@ -162,12 +162,12 @@ function mapArticleFromDB(db: any): Article {
 // ============================================
 export async function fetchCreditos(): Promise<Loan[]> {
   const { data, error } = await supabase
-    .from('creditos')
+    .from('prestamos')
     .select(`
       *,
       clientes!inner(*),
       cuotas(*),
-      pagos(*)
+      cobros(*)
     `)
     .order('created_at', { ascending: false });
   
@@ -180,37 +180,29 @@ export async function createCredito(
   cuotas: Array<{ numero: number; fecha: string; monto: number }>
 ): Promise<Loan> {
   // 1. Insertar crédito
-  const { data: creditoData, error: creditoError } = await supabase
-    .from('creditos')
+  const { data: prestamoData, error: prestamoError } = await supabase
+    .from('prestamos')
     .insert({
       cliente_id: loan.clientId,
-      tipo: loan.type,
-      modalidad: loan.modality,
-      monto_principal: loan.amount,
-      tasa_mensual: loan.interestRate,
+      cobrador_id: loan.assignedCollector,
+      monto: loan.amount,
+      tasa_interes: loan.interestRate,
       plazo_meses: loan.term,
-      monto_interes: loan.totalInterest,
       monto_total: loan.totalAmount,
-      valor_cuota: loan.installmentAmount,
-      total_cuotas: cuotas.length,
+      saldo_pendiente: loan.totalAmount,
+      estado: loan.status,
+      dia_cobro: loan.preferredDay?.toLowerCase(),
       fecha_inicio: loan.startDate,
-      dia_cobro_preferido: loan.preferredDay,
-      estado: loan.status.toUpperCase(),
-      cobrador_asignado: loan.assignedCollector,
-      articulo_id: loan.articleId,
-      garantias: loan.guarantees,
-      proposito: loan.purpose,
-      observaciones: loan.observations,
     })
     .select()
     .single();
   
-  if (creditoError) throw creditoError;
+  if (prestamoError) throw prestamoError;
 
   // 2. Insertar cuotas
   if (cuotas.length > 0) {
     const cuotasToInsert = cuotas.map(c => ({
-      credito_id: creditoData.id,
+      prestamo_id: prestamoData.id,
       numero_cuota: c.numero,
       fecha_cobro: c.fecha,
       monto_cuota: c.monto,
@@ -228,12 +220,12 @@ export async function createCredito(
     await updateArticleStatus(loan.articleId, 'Entregado');
   }
 
-  return mapCreditoFromDB({ ...creditoData, cuotas: [], pagos: [] });
+  return mapCreditoFromDB({ ...prestamoData, cuotas: [], cobros: [] });
 }
 
 export async function updateCreditoStatus(id: string, status: 'ACTIVO' | 'MORA' | 'CANCELADO'): Promise<void> {
   const { error } = await supabase
-    .from('creditos')
+    .from('prestamos')
     .update({ estado: status })
     .eq('id', id);
   
@@ -244,23 +236,23 @@ function mapCreditoFromDB(db: any): Loan {
   return {
     id: db.id,
     clientId: db.cliente_id,
-    type: db.tipo,
-    modality: db.modalidad,
-    amount: db.monto_principal,
-    interestRate: db.tasa_mensual,
+    type: 'mensual', // Valor por defecto, ya no viene de la BD
+    modality: 'efectivo', // Valor por defecto, ya no viene de la BD
+    amount: db.monto,
+    interestRate: db.tasa_interes,
     term: db.plazo_meses,
-    installmentAmount: db.valor_cuota,
+    installmentAmount: db.monto_total / db.plazo_meses, // Calcular cuota
     totalAmount: db.monto_total,
-    totalInterest: db.monto_interes,
+    totalInterest: db.monto_total - db.monto, // Calcular interés
     startDate: db.fecha_inicio,
     status: db.estado.toLowerCase(),
-    assignedCollector: db.cobrador_asignado,
-    articleId: db.articulo_id,
-    guarantees: db.garantias,
-    observations: db.observaciones,
-    purpose: db.proposito,
-    preferredDay: db.dia_cobro_preferido,
-    payments: (db.pagos || []).map(mapPagoFromDB),
+    assignedCollector: db.cobrador_id,
+    articleId: undefined, // Ya no se guarda en la BD
+    guarantees: undefined, // Ya no se guarda en la BD
+    observations: undefined, // Ya no se guarda en la BD
+    purpose: undefined, // Ya no se guarda en la BD
+    preferredDay: db.dia_cobro,
+    payments: (db.cobros || []).map(mapPagoFromDB),
     createdAt: db.created_at,
   };
 }
@@ -282,20 +274,16 @@ export async function registerPayment(payment: {
   const { data: reciboData } = await supabase.rpc('generar_numero_recibo');
   const numeroRecibo = reciboData || `R-${String(Date.now()).slice(-4)}`;
 
-  // 2. Insertar pago
+  // 2. Insertar cobro
   const { data, error } = await supabase
-    .from('pagos')
+    .from('cobros')
     .insert({
-      credito_id: payment.creditoId,
-      cuota_id: payment.cuotaId,
-      cliente_id: payment.clientId,
+      prestamo_id: payment.creditoId,
       monto: payment.amount,
+      fecha_cobro: payment.date,
       metodo_pago: payment.method,
-      numero_recibo: numeroRecibo,
-      cobrador_id: payment.collectorId,
-      es_mora: payment.isLate,
-      fecha_pago: payment.date,
-      sincronizado: true,
+      nota: `Recibo: ${numeroRecibo}`,
+      creado_por: payment.collectorId,
     })
     .select()
     .single();
@@ -330,17 +318,17 @@ export async function registerPayment(payment: {
 function mapPagoFromDB(db: any): Payment {
   return {
     id: db.id,
-    loanId: db.credito_id,
-    clientId: db.cliente_id,
+    loanId: db.prestamo_id,
+    clientId: '', // Ya no viene de la BD
     amount: db.monto,
     method: db.metodo_pago,
-    date: db.fecha_pago,
-    collectorId: db.cobrador_id,
-    receiptNumber: db.numero_recibo,
-    isLate: db.es_mora,
-    lat: db.lat,
-    lng: db.lng,
-    synced: db.sincronizado,
+    date: db.fecha_cobro,
+    collectorId: db.creado_por,
+    receiptNumber: db.nota?.replace('Recibo: ', '') || '',
+    isLate: false, // Ya no viene de la BD
+    lat: undefined, // Ya no viene de la BD
+    lng: undefined, // Ya no viene de la BD
+    synced: true,
   };
 }
 
