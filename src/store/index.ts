@@ -6,32 +6,8 @@ import type {
   LoanStatus, PaymentMethod, ExpenseCategory, AppSettings
 } from '../types';
 
-// ==================== SEED DATA ====================
-const seedUsers: User[] = [
-  { id: '1', name: 'Admin Principal', pin: '1234', role: 'admin', active: true, createdAt: '2024-01-01' },
-  { id: '2', name: 'María García', pin: '2345', role: 'gerente', active: true, createdAt: '2024-01-01' },
-  { id: '3', name: 'Carlos López', pin: '3456', role: 'cobrador', active: true, createdAt: '2024-01-01' },
-  { id: '4', name: 'Ana Martínez', pin: '4567', role: 'cobrador', active: true, createdAt: '2024-01-15' },
-  { id: '5', name: 'Pedro Sánchez', pin: '5678', role: 'solo_lectura', active: true, createdAt: '2024-02-01' },
-];
-
-const seedClients: Client[] = [
-  { id: 'c1', fullName: 'Juan Pérez Rodríguez', cedula: '001-1234567-8', address: 'Calle Principal #45, Sector Centro', phone: '809-555-0101', whatsapp: '809-555-0101', email: 'juan@email.com', guarantor: 'María Pérez', guarantorPhone: '809-555-0102', lat: 18.4861, lng: -69.9312, createdAt: '2024-01-15' },
-  { id: 'c2', fullName: 'Rosa María Fernández', cedula: '001-2345678-9', address: 'Av. Independencia #123, Apt 4B', phone: '809-555-0202', whatsapp: '809-555-0202', lat: 18.4802, lng: -69.9422, createdAt: '2024-01-20' },
-  { id: 'c3', fullName: 'Miguel Ángel Santos', cedula: '001-3456789-0', address: 'Calle Duarte #78, Los Mina', phone: '809-555-0303', whatsapp: '809-555-0303', guarantor: 'Luis Santos', guarantorPhone: '809-555-0304', lat: 18.4919, lng: -69.8919, createdAt: '2024-02-01' },
-  { id: 'c4', fullName: 'Carmen Lucía Reyes', cedula: '001-4567890-1', address: 'Calle 3ra #12, Villa Mella', phone: '809-555-0404', whatsapp: '809-555-0404', lat: 18.5219, lng: -69.9469, createdAt: '2024-02-10' },
-  { id: 'c5', fullName: 'Roberto Díaz Moreno', cedula: '001-5678901-2', address: 'Av. San Vicente de Paúl #200', phone: '809-555-0505', whatsapp: '809-555-0505', guarantor: 'Elena Díaz', guarantorPhone: '809-555-0506', lat: 18.4731, lng: -69.9131, createdAt: '2024-02-15' },
-  { id: 'c6', fullName: 'Luisa Fernanda Gómez', cedula: '001-6789012-3', address: 'Calle El Sol #56, Herrera', phone: '809-555-0606', whatsapp: '809-555-0606', lat: 18.4750, lng: -69.9750, createdAt: '2024-03-01' },
-];
-
-const seedArticles: Article[] = [
-  { id: 'a1', name: 'Refrigerador Samsung 12ft', description: 'Refrigerador no frost 12 pies cúbicos', category: 'Electrodomésticos', costPrice: 25000, salePrice: 35000, quantity: 3, minStock: 2, brand: 'Samsung', model: 'RT12M333ES8', serialNumber: 'SAM-2024-001', createdAt: '2024-01-01' },
-  { id: 'a2', name: 'Lavadora LG 22lb', description: 'Lavadora automática 22 libras', category: 'Electrodomésticos', costPrice: 18000, salePrice: 26000, quantity: 5, minStock: 2, brand: 'LG', model: 'WT22V', serialNumber: 'LG-2024-045', createdAt: '2024-01-01' },
-  { id: 'a3', name: 'Smart TV 55"', description: 'Smart TV LED 55 pulgadas 4K', category: 'Electrónica', costPrice: 22000, salePrice: 32000, quantity: 4, minStock: 2, brand: 'TCL', model: '55P615', serialNumber: 'TCL-2024-112', createdAt: '2024-01-05' },
-  { id: 'a4', name: 'Aire Acondicionado 12000BTU', description: 'Mini split inverter 12000 BTU', category: 'Electrodomésticos', costPrice: 28000, salePrice: 40000, quantity: 2, minStock: 1, brand: 'Midea', model: 'MSAGBU-12', serialNumber: 'MID-2024-008', createdAt: '2024-01-10' },
-  { id: 'a5', name: 'Motocicleta Italika 150cc', description: 'Motocicleta nueva 150cc', category: 'Vehículos', costPrice: 65000, salePrice: 85000, quantity: 1, minStock: 1, brand: 'Italika', model: 'FT150', serialNumber: 'ITA-2024-001', imei: '353456789012345', createdAt: '2024-02-01' },
-  { id: 'a6', name: 'iPhone 13 128GB', description: 'iPhone 13 nuevo sellado', category: 'Electrónica', costPrice: 35000, salePrice: 48000, quantity: 2, minStock: 1, brand: 'Apple', model: 'iPhone 13', serialNumber: 'APL-2024-567', imei: '356789012345678', createdAt: '2024-02-15' },
-];
+// ==================== STORE LIMPIO - SIN DATOS DE EJEMPLO ====================
+// Todos los datos se cargan desde Supabase en tiempo real
 
 // --- FUNCIÓN DE CÁLCULO EXACTA DEL MODELO EXCEL/VBA ---
 interface CalculoPrestamoParams {
@@ -117,78 +93,7 @@ function calculateTotalAmount(amount: number, interestRate: number, term: number
   return montoConInteres;
 }
 
-const seedLoans: Loan[] = [
-  {
-    id: 'l1', clientId: 'c1', type: 'semanal', modality: 'efectivo', amount: 10000, interestRate: 45, term: 3,
-    installmentAmount: calculateInstallment(10000, 45, 3, 'semanal'),
-    totalAmount: 10000 + calculateTotalInterest(10000, 45, 3),
-    totalInterest: calculateTotalInterest(10000, 45, 3),
-    startDate: '2024-11-01', status: 'activo', assignedCollector: '3',
-    payments: [
-      { id: 'p1', loanId: 'l1', clientId: 'c1', amount: 1042, method: 'efectivo', date: '2024-11-08', collectorId: '3', receiptNumber: 'R-001', isLate: false, synced: true },
-      { id: 'p2', loanId: 'l1', clientId: 'c1', amount: 1042, method: 'efectivo', date: '2024-11-15', collectorId: '3', receiptNumber: 'R-002', isLate: false, synced: true },
-      { id: 'p3', loanId: 'l1', clientId: 'c1', amount: 1042, method: 'transferencia', date: '2024-11-22', collectorId: '3', receiptNumber: 'R-003', isLate: false, synced: true },
-    ],
-    createdAt: '2024-11-01'
-  },
-  {
-    id: 'l2', clientId: 'c2', type: 'quincenal', modality: 'articulo', amount: 26000, interestRate: 45, term: 3,
-    installmentAmount: calculateInstallment(26000, 45, 3, 'quincenal'),
-    totalAmount: 26000 + calculateTotalInterest(26000, 45, 3),
-    totalInterest: calculateTotalInterest(26000, 45, 3),
-    startDate: '2024-10-15', status: 'activo', assignedCollector: '3', articleId: 'a2',
-    payments: [
-      { id: 'p4', loanId: 'l2', clientId: 'c2', amount: 5200, method: 'efectivo', date: '2024-10-30', collectorId: '3', receiptNumber: 'R-004', isLate: false, synced: true },
-      { id: 'p5', loanId: 'l2', clientId: 'c2', amount: 5200, method: 'efectivo', date: '2024-11-15', collectorId: '3', receiptNumber: 'R-005', isLate: true, synced: true },
-    ],
-    createdAt: '2024-10-15'
-  },
-  {
-    id: 'l3', clientId: 'c3', type: 'mensual', modality: 'efectivo', amount: 50000, interestRate: 45, term: 3,
-    installmentAmount: calculateInstallment(50000, 45, 3, 'mensual'),
-    totalAmount: 50000 + calculateTotalInterest(50000, 45, 3),
-    totalInterest: calculateTotalInterest(50000, 45, 3),
-    startDate: '2024-09-01', status: 'mora', assignedCollector: '4',
-    payments: [
-      { id: 'p6', loanId: 'l3', clientId: 'c3', amount: 21875, method: 'efectivo', date: '2024-10-01', collectorId: '4', receiptNumber: 'R-006', isLate: false, synced: true },
-    ],
-    createdAt: '2024-09-01'
-  },
-  {
-    id: 'l4', clientId: 'c4', type: 'semanal', modality: 'efectivo', amount: 5000, interestRate: 45, term: 2,
-    installmentAmount: calculateInstallment(5000, 45, 2, 'semanal'),
-    totalAmount: 5000 + calculateTotalInterest(5000, 45, 2),
-    totalInterest: calculateTotalInterest(5000, 45, 2),
-    startDate: '2024-12-01', status: 'activo', assignedCollector: '4',
-    payments: [],
-    createdAt: '2024-12-01'
-  },
-  {
-    id: 'l5', clientId: 'c5', type: 'quincenal', modality: 'articulo', amount: 32000, interestRate: 45, term: 4,
-    installmentAmount: calculateInstallment(32000, 45, 4, 'quincenal'),
-    totalAmount: 32000 + calculateTotalInterest(32000, 45, 4),
-    totalInterest: calculateTotalInterest(32000, 45, 4),
-    startDate: '2024-08-01', status: 'cancelado', assignedCollector: '3', articleId: 'a3',
-    payments: Array.from({ length: 8 }, (_, i) => ({
-      id: `p7_${i}`, loanId: 'l5', clientId: 'c5', amount: calculateInstallment(32000, 45, 4, 'quincenal'),
-      method: 'efectivo' as PaymentMethod, date: `2024-${String(8 + Math.floor(i/2)).padStart(2,'0')}-${i%2===0?'01':'15'}`,
-      collectorId: '3', receiptNumber: `R-${100+i}`, isLate: false, synced: true
-    })),
-    createdAt: '2024-08-01'
-  },
-];
-
-const seedRoutes: Route[] = [
-  { id: 'r1', name: 'Ruta Centro', collectorId: '3', clientIds: ['c1', 'c2'], active: true, createdAt: '2024-01-01' },
-  { id: 'r2', name: 'Ruta Norte', collectorId: '4', clientIds: ['c3', 'c4', 'c6'], active: true, createdAt: '2024-01-01' },
-];
-
-const seedCashMovements: CashMovement[] = [
-  { id: 'cm1', type: 'ingreso', amount: 3126, description: 'Cobros del día', date: '2024-12-01', userId: '3', category: undefined },
-  { id: 'cm2', type: 'egreso', amount: 500, description: 'Gasolina cobradores', date: '2024-12-01', userId: '1', category: 'operativos' },
-  { id: 'cm3', type: 'ingreso', amount: 5200, description: 'Cobro quincenal', date: '2024-12-01', userId: '3', category: undefined },
-  { id: 'cm4', type: 'egreso', amount: 1500, description: 'Comisiones cobradores', date: '2024-12-01', userId: '1', category: 'comisiones' },
-];
+// Todos los datos se cargan desde Supabase - Arrays vacíos
 
 // ==================== STORE ====================
 interface AppState {
@@ -262,7 +167,7 @@ export const useStore = create<AppState>()(
   (set, get) => ({
       // Auth
       currentUser: null,
-      users: seedUsers,
+      users: [],
       login: (pin: string) => {
         const user = get().users.find(u => u.pin === pin && u.active);
         if (user) {
@@ -283,7 +188,7 @@ export const useStore = create<AppState>()(
       })),
 
       // Clients
-      clients: seedClients,
+      clients: [],
       addClient: (client) => set(state => ({
         clients: [...state.clients, { ...client, id: uuidv4(), createdAt: new Date().toISOString().split('T')[0] }]
       })),
@@ -295,7 +200,7 @@ export const useStore = create<AppState>()(
       })),
 
       // Loans
-      loans: seedLoans,
+      loans: [],
       addLoan: (loanData) => {
         const installmentAmount = calculateInstallment(loanData.amount, loanData.interestRate, loanData.term, loanData.type);
         const totalInterest = calculateTotalInterest(loanData.amount, loanData.interestRate, loanData.term, loanData.type);
@@ -345,7 +250,7 @@ export const useStore = create<AppState>()(
       },
 
       // Articles
-      articles: seedArticles,
+      articles: [],
       addArticle: (article) => set(state => ({
         articles: [...state.articles, { ...article, id: uuidv4(), createdAt: new Date().toISOString().split('T')[0] }]
       })),
@@ -357,7 +262,7 @@ export const useStore = create<AppState>()(
       })),
 
       // Cash
-      cashMovements: seedCashMovements,
+      cashMovements: [],
       cashRegisters: [],
       addCashMovement: (movement) => set(state => ({
         cashMovements: [...state.cashMovements, { ...movement, id: uuidv4() }]
@@ -392,7 +297,7 @@ export const useStore = create<AppState>()(
       },
 
       // Routes
-      routes: seedRoutes,
+      routes: [],
       addRoute: (route) => set(state => ({
         routes: [...state.routes, { ...route, id: uuidv4(), createdAt: new Date().toISOString().split('T')[0] }]
       })),
