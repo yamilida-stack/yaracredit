@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS profiles (
   id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
   email TEXT NOT NULL,
   full_name TEXT,
-  role TEXT CHECK (role IN ('admin', 'gerente', 'cobrador', 'solo_lectura')) DEFAULT 'cobrador',
+  role TEXT CHECK (role IN ('admin', 'cobrador')) DEFAULT 'cobrador',
   phone TEXT,
   active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW(),

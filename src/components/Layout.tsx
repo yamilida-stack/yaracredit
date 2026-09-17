@@ -13,20 +13,20 @@ interface LayoutProps {
 }
 
 const navItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['administrador', 'cobrador'] },
-  { id: 'clients', label: 'Clientes', icon: Users, roles: ['administrador', 'cobrador'] },
-  { id: 'loans', label: 'Préstamos', icon: DollarSign, roles: ['administrador', 'cobrador'] },
-  { id: 'collections', label: 'Cobros', icon: Receipt, roles: ['administrador', 'cobrador'] },
-  { id: 'financed-devices', label: 'Dispositivos', icon: Package, roles: ['administrador', 'cobrador'] },
-  { id: 'risk-score', label: 'Score Riesgo', icon: Shield, roles: ['administrador'] },
-  { id: 'routes', label: 'Rutas', icon: Route, roles: ['administrador'] },
-  { id: 'stock', label: 'Stock', icon: Package, roles: ['administrador'] },
-  { id: 'cash', label: 'Caja', icon: Wallet, roles: ['administrador'] },
-  { id: 'contracts', label: 'Contratos', icon: FileText, roles: ['administrador'] },
-  { id: 'payroll', label: 'Planilla', icon: UserCog, roles: ['administrador'] },
-  { id: 'reports', label: 'Reportes', icon: BarChart3, roles: ['administrador'] },
-  { id: 'user-management', label: 'Gestión de Usuarios', icon: Users, roles: ['administrador'] },
-  { id: 'settings', label: 'Configuración', icon: Settings, roles: ['administrador'] },
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'cobrador'] },
+  { id: 'clients', label: 'Clientes', icon: Users, roles: ['admin', 'cobrador'] },
+  { id: 'loans', label: 'Préstamos', icon: DollarSign, roles: ['admin', 'cobrador'] },
+  { id: 'collections', label: 'Cobros', icon: Receipt, roles: ['admin', 'cobrador'] },
+  { id: 'financed-devices', label: 'Dispositivos', icon: Package, roles: ['admin', 'cobrador'] },
+  { id: 'risk-score', label: 'Score Riesgo', icon: Shield, roles: ['admin'] },
+  { id: 'routes', label: 'Rutas', icon: Route, roles: ['admin'] },
+  { id: 'stock', label: 'Stock', icon: Package, roles: ['admin'] },
+  { id: 'cash', label: 'Caja', icon: Wallet, roles: ['admin'] },
+  { id: 'contracts', label: 'Contratos', icon: FileText, roles: ['admin'] },
+  { id: 'payroll', label: 'Planilla', icon: UserCog, roles: ['admin'] },
+  { id: 'reports', label: 'Reportes', icon: BarChart3, roles: ['admin'] },
+  { id: 'user-management', label: 'Gestión de Usuarios', icon: Users, roles: ['admin'] },
+  { id: 'settings', label: 'Configuración', icon: Settings, roles: ['admin'] },
 ];
 
 export default function Layout({ children, currentPage, onNavigate }: LayoutProps) {
@@ -40,7 +40,7 @@ export default function Layout({ children, currentPage, onNavigate }: LayoutProp
   );
 
   const roleLabels = {
-    administrador: 'Administrador',
+    admin: 'Administrador',
     cobrador: 'Cobrador',
   };
 

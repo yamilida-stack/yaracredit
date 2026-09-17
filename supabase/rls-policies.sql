@@ -6,10 +6,10 @@
 -- Actualizar la tabla profiles para usar los roles correctos
 ALTER TABLE profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
 ALTER TABLE profiles ADD CONSTRAINT profiles_role_check 
-  CHECK (role IN ('administrador', 'cobrador'));
+  CHECK (role IN ('admin', 'cobrador'));
 
 -- Actualizar valores existentes (si hay datos)
-UPDATE profiles SET role = 'administrador' WHERE role = 'admin';
+UPDATE profiles SET role = 'admin' WHERE role = 'administrador';
 UPDATE profiles SET role = 'cobrador' WHERE role IN ('gerente', 'solo_lectura');
 
 -- ============================================
@@ -30,7 +30,7 @@ CREATE POLICY "Admins can view all profiles"
     EXISTS (
       SELECT 1 FROM profiles
       WHERE id = auth.uid() 
-      AND role = 'administrador'
+      AND role = 'admin'
       AND active = true
     )
   );
@@ -51,7 +51,7 @@ CREATE POLICY "Only admins can insert profiles"
     EXISTS (
       SELECT 1 FROM profiles
       WHERE id = auth.uid() 
-      AND role = 'administrador'
+      AND role = 'admin'
       AND active = true
     )
   );
@@ -64,7 +64,7 @@ CREATE POLICY "Only admins can update roles"
     EXISTS (
       SELECT 1 FROM profiles
       WHERE id = auth.uid() 
-      AND role = 'administrador'
+      AND role = 'admin'
       AND active = true
     )
   );
@@ -77,7 +77,7 @@ CREATE POLICY "Only admins can delete profiles"
     EXISTS (
       SELECT 1 FROM profiles
       WHERE id = auth.uid() 
-      AND role = 'administrador'
+      AND role = 'admin'
       AND active = true
     )
   );
@@ -91,7 +91,7 @@ BEGIN
   RETURN EXISTS (
     SELECT 1 FROM profiles
     WHERE id = user_id 
-    AND role = 'administrador'
+    AND role = 'admin'
     AND active = true
   );
 END;
@@ -109,7 +109,7 @@ CREATE POLICY "Admins can view all clients"
     EXISTS (
       SELECT 1 FROM profiles
       WHERE id = auth.uid() 
-      AND role = 'administrador'
+      AND role = 'admin'
       AND active = true
     )
   );
@@ -140,7 +140,7 @@ CREATE POLICY "Only admins can insert clients"
     EXISTS (
       SELECT 1 FROM profiles
       WHERE id = auth.uid() 
-      AND role = 'administrador'
+      AND role = 'admin'
       AND active = true
     )
   );
@@ -153,7 +153,7 @@ CREATE POLICY "Only admins can update clients"
     EXISTS (
       SELECT 1 FROM profiles
       WHERE id = auth.uid() 
-      AND role = 'administrador'
+      AND role = 'admin'
       AND active = true
     )
   );
@@ -166,7 +166,7 @@ CREATE POLICY "Only admins can delete clients"
     EXISTS (
       SELECT 1 FROM profiles
       WHERE id = auth.uid() 
-      AND role = 'administrador'
+      AND role = 'admin'
       AND active = true
     )
   );
@@ -183,7 +183,7 @@ CREATE POLICY "Admins can view all credits"
     EXISTS (
       SELECT 1 FROM profiles
       WHERE id = auth.uid() 
-      AND role = 'administrador'
+      AND role = 'admin'
       AND active = true
     )
   );
@@ -202,7 +202,7 @@ CREATE POLICY "Only admins can insert credits"
     EXISTS (
       SELECT 1 FROM profiles
       WHERE id = auth.uid() 
-      AND role = 'administrador'
+      AND role = 'admin'
       AND active = true
     )
   );
@@ -215,7 +215,7 @@ CREATE POLICY "Only admins can update credits"
     EXISTS (
       SELECT 1 FROM profiles
       WHERE id = auth.uid() 
-      AND role = 'administrador'
+      AND role = 'admin'
       AND active = true
     )
   );
@@ -228,7 +228,7 @@ CREATE POLICY "Only admins can delete credits"
     EXISTS (
       SELECT 1 FROM profiles
       WHERE id = auth.uid() 
-      AND role = 'administrador'
+      AND role = 'admin'
       AND active = true
     )
   );
@@ -245,7 +245,7 @@ CREATE POLICY "Admins can view all payments"
     EXISTS (
       SELECT 1 FROM profiles
       WHERE id = auth.uid() 
-      AND role = 'administrador'
+      AND role = 'admin'
       AND active = true
     )
   );

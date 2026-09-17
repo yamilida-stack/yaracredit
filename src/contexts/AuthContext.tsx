@@ -6,7 +6,7 @@ interface Profile {
   id: string;
   email: string;
   full_name: string;
-  role: 'administrador' | 'cobrador';
+  role: 'admin' | 'cobrador';
   phone?: string;
   active: boolean;
 }

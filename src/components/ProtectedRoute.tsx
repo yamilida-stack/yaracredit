@@ -4,7 +4,7 @@ import { FullPageLoader } from './LoadingStates';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  allowedRoles?: ('administrador' | 'cobrador')[];
+  allowedRoles?: ('admin' | 'cobrador')[];
 }
 
 export default function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
@@ -23,7 +23,7 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
   // Si se especificaron roles permitidos, verificar que el usuario tenga uno de esos roles
   if (allowedRoles && profile && !allowedRoles.includes(profile.role)) {
     // Redirigir según el rol del usuario
-    if (profile.role === 'administrador') {
+    if (profile.role === 'admin') {
       return <Navigate to="/dashboard-admin" replace />;
     } else if (profile.role === 'cobrador') {
       return <Navigate to="/dashboard-cobrador" replace />;

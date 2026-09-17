@@ -9,7 +9,7 @@ interface UserProfile {
   id: string;
   email: string;
   full_name: string;
-  role: 'administrador' | 'cobrador';
+  role: 'admin' | 'cobrador';
   active: boolean;
   created_at: string;
 }
@@ -25,7 +25,7 @@ export default function UserManagementPage() {
     full_name: '',
     email: '',
     password: '',
-    role: 'cobrador' as 'administrador' | 'cobrador',
+    role: 'cobrador' as 'admin' | 'cobrador',
   });
 
   // Cargar usuarios al montar el componente
@@ -251,8 +251,8 @@ export default function UserManagementPage() {
                 </td>
                 <td className="px-4 py-3 text-sm text-gray-600">{user.email}</td>
                 <td className="px-4 py-3">
-                  <Badge variant={user.role === 'administrador' ? 'danger' : 'info'}>
-                    {user.role === 'administrador' ? 'Administrador' : 'Cobrador'}
+                  <Badge variant={user.role === 'admin' ? 'danger' : 'info'}>
+                    {user.role === 'admin' ? 'Administrador' : 'Cobrador'}
                   </Badge>
                 </td>
                 <td className="px-4 py-3">
@@ -336,10 +336,10 @@ export default function UserManagementPage() {
           <Select
             label="Rol"
             value={form.role}
-            onChange={e => setForm({ ...form, role: e.target.value as 'administrador' | 'cobrador' })}
+            onChange={e => setForm({ ...form, role: e.target.value as 'admin' | 'cobrador' })}
             options={[
               { value: 'cobrador', label: 'Cobrador' },
-              { value: 'administrador', label: 'Administrador' },
+              { value: 'admin', label: 'Administrador' },
             ]}
           />
           <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-700">
