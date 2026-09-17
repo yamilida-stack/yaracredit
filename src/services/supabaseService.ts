@@ -198,23 +198,32 @@ export async function createCredito(
   if (cuotas.length > 0) {
     fechaFin = cuotas[cuotas.length - 1].fecha;
   }
+  
+  console.log('=== CREANDO CRÉDITO EN SUPABASE SERVICE ===');
+  console.log('Fecha inicio:', loan.startDate);
+  console.log('Fecha fin calculada:', fechaFin);
+  console.log('Número de cuotas:', cuotas.length);
 
   // 1. Insertar crédito
+  const payload = {
+    cliente_id: loan.clientId,
+    cobrador_id: loan.assignedCollector,
+    monto: loan.amount,
+    tasa_interes: loan.interestRate,
+    plazo_meses: loan.term,
+    monto_total: loan.totalAmount,
+    saldo_pendiente: loan.totalAmount,
+    estado: loan.status,
+    dia_cobro: loan.preferredDay?.toLowerCase(),
+    fecha_inicio: loan.startDate,
+    fecha_fin: fechaFin,
+  };
+  
+  console.log('Payload a enviar:', payload);
+
   const { data: prestamoData, error: prestamoError } = await supabase
     .from('prestamos')
-    .insert({
-      cliente_id: loan.clientId,
-      cobrador_id: loan.assignedCollector,
-      monto: loan.amount,
-      tasa_interes: loan.interestRate,
-      plazo_meses: loan.term,
-      monto_total: loan.totalAmount,
-      saldo_pendiente: loan.totalAmount,
-      estado: loan.status,
-      dia_cobro: loan.preferredDay?.toLowerCase(),
-      fecha_inicio: loan.startDate,
-      fecha_fin: fechaFin, // ¡IMPORTANTE! Fecha del último cobro
-    })
+    .insert(payload)
     .select()
     .single();
   

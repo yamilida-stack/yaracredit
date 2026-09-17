@@ -395,6 +395,12 @@ export default function LoansPage() {
     }
     
     const fechaFinStr = fechaFin.toISOString().split('T')[0];
+    
+    console.log('=== CÁLCULO DE FECHAS ===');
+    console.log('Fecha inicio:', form.startDate);
+    console.log('Frecuencia:', frequency);
+    console.log('Total cuotas:', totalCuotas);
+    console.log('Fecha fin calculada:', fechaFinStr);
 
     console.log('Valores calculados:', {
       amount,
@@ -411,29 +417,7 @@ export default function LoansPage() {
     try {
       if (editing) {
         // Actualizar préstamo existente
-        console.log('Actualizando préstamo existente:', editing.id);
-        const { error } = await supabase
-          .from('prestamos')
-          .update({
-            cliente_id: form.clientId,
-            cobrador_id: profile.id, // Usar profile.id en lugar de form.assignedCollector
-            monto: amount,
-            tasa_interes: interestRate,
-            plazo_meses: term,
-            monto_total: totalAmount,
-            saldo_pendiente: totalAmount,
-            estado: 'activo',
-            dia_cobro: form.preferredDay.toLowerCase(),
-            fecha_inicio: form.startDate,
-            fecha_fin: fechaFinStr, // ¡IMPORTANTE! Fecha del último cobro
-          })
-          .eq('id', editing.id);
-
-        if (error) throw error;
-        addNotification('success', 'Préstamo actualizado exitosamente');
-      } else {
-        // Crear nuevo préstamo
-        console.log('Creando nuevo préstamo con datos:', {
+        const updatePayload = {
           cliente_id: form.clientId,
           cobrador_id: profile.id,
           monto: amount,
@@ -445,23 +429,44 @@ export default function LoansPage() {
           dia_cobro: form.preferredDay.toLowerCase(),
           fecha_inicio: form.startDate,
           fecha_fin: fechaFinStr,
-        });
+        };
+        
+        console.log('=== ACTUALIZANDO PRÉSTAMO ===');
+        console.log('ID:', editing.id);
+        console.log('Payload:', updatePayload);
+        
+        const { error } = await supabase
+          .from('prestamos')
+          .update(updatePayload)
+          .eq('id', editing.id);
+
+        if (error) throw error;
+        addNotification('success', 'Préstamo actualizado exitosamente');
+      } else {
+        // Crear nuevo préstamo
+        const payload = {
+          cliente_id: form.clientId,
+          cobrador_id: profile.id,
+          monto: amount,
+          tasa_interes: interestRate,
+          plazo_meses: term,
+          monto_total: totalAmount,
+          saldo_pendiente: totalAmount,
+          estado: 'activo',
+          dia_cobro: form.preferredDay.toLowerCase(),
+          fecha_inicio: form.startDate,
+          fecha_fin: fechaFinStr,
+        };
+        
+        console.log('=== PAYLOAD A ENVIAR A SUPABASE ===');
+        console.log('Payload completo:', payload);
+        console.log('fecha_inicio:', payload.fecha_inicio);
+        console.log('fecha_fin:', payload.fecha_fin);
+        console.log('¿fecha_fin es null o undefined?', payload.fecha_fin === null || payload.fecha_fin === undefined);
 
         const { data: newLoan, error: loanError } = await supabase
           .from('prestamos')
-          .insert([{
-            cliente_id: form.clientId,
-            cobrador_id: profile.id, // Usar profile.id del usuario logueado
-            monto: amount,
-            tasa_interes: interestRate,
-            plazo_meses: term,
-            monto_total: totalAmount,
-            saldo_pendiente: totalAmount,
-            estado: 'activo',
-            dia_cobro: form.preferredDay.toLowerCase(),
-            fecha_inicio: form.startDate,
-            fecha_fin: fechaFinStr, // ¡IMPORTANTE! Fecha del último cobro
-          }])
+          .insert([payload])
           .select()
           .single();
 
