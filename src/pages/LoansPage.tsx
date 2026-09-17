@@ -40,14 +40,14 @@ export default function LoansPage() {
       const { data, error } = await supabase
         .from('clientes')
         .select('*')
-        .order('nombre_completo', { ascending: true });
+        .order('nombre', { ascending: true });
 
       if (error) throw error;
       
       // Mapear datos de Supabase al formato de Client
       const mappedClients: Client[] = (data || []).map(client => ({
         id: client.id,
-        fullName: client.nombre_completo,
+        fullName: client.nombre,
         cedula: client.cedula,
         address: client.direccion || '',
         phone: client.telefono,
@@ -471,8 +471,8 @@ export default function LoansPage() {
           cuotas.push({
             prestamo_id: newLoan.id,
             numero_cuota: i,
-            fecha_cobro: dueDate.toISOString().split('T')[0],
-            monto_cuota: installmentAmount,
+            fecha_vencimiento: dueDate.toISOString().split('T')[0],
+            monto: installmentAmount,
           });
         }
 

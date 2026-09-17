@@ -87,7 +87,7 @@ export default function ClientsPage() {
     }
 
     const clientData = {
-      nombre_completo: form.fullName,
+      nombre: form.fullName,
       cedula: form.cedula,
       direccion: form.address,
       telefono: form.phone,

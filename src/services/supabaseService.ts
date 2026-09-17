@@ -18,7 +18,7 @@ export async function createCliente(client: Omit<Client, 'id' | 'createdAt'>): P
   const { data, error } = await supabase
     .from('clientes')
     .insert({
-      nombre_completo: client.fullName,
+      nombre: client.fullName,
       cedula: client.cedula,
       direccion: client.address,
       telefono: client.phone,
@@ -43,7 +43,7 @@ export async function createCliente(client: Omit<Client, 'id' | 'createdAt'>): P
 
 export async function updateCliente(id: string, updates: Partial<Client>): Promise<void> {
   const dbUpdates: any = {};
-  if (updates.fullName) dbUpdates.nombre_completo = updates.fullName;
+  if (updates.fullName) dbUpdates.nombre = updates.fullName;
   if (updates.cedula) dbUpdates.cedula = updates.cedula;
   if (updates.address) dbUpdates.direccion = updates.address;
   if (updates.phone) dbUpdates.telefono = updates.phone;
@@ -73,7 +73,7 @@ export async function deleteCliente(id: string): Promise<void> {
 function mapClienteFromDB(db: any): Client {
   return {
     id: db.id,
-    fullName: db.nombre_completo,
+    fullName: db.nombre,
     cedula: db.cedula,
     address: db.direccion || '',
     phone: db.telefono,
@@ -204,8 +204,8 @@ export async function createCredito(
     const cuotasToInsert = cuotas.map(c => ({
       prestamo_id: prestamoData.id,
       numero_cuota: c.numero,
-      fecha_cobro: c.fecha,
-      monto_cuota: c.monto,
+      fecha_vencimiento: c.fecha,
+      monto: c.monto,
     }));
 
     const { error: cuotasError } = await supabase
@@ -295,8 +295,7 @@ export async function registerPayment(payment: {
     await supabase
       .from('cuotas')
       .update({
-        monto_pagado: payment.amount,
-        estado: 'PAGADO',
+        estado: 'pagada',
         fecha_pago: payment.date,
       })
       .eq('id', payment.cuotaId);
