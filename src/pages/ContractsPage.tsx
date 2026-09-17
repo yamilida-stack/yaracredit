@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useStore } from '../store';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabaseClient';
 import { Modal, Button, Card, Badge, Input, Select, formatCurrency, formatDate } from '../components/ui';
 import { FileText, Download, Eye, Printer, CheckCircle, Edit2, Send } from 'lucide-react';
 import { exportContractPDF } from '../utils/pdfGenerator';
-import type { Loan } from '../types';
+import type { Loan, Client } from '../types';
 
 export default function ContractsPage() {
   const { loans, clients, users, updateLoan, addNotification } = useStore();
@@ -19,12 +19,119 @@ export default function ContractsPage() {
     term: '',
     clientId: '',
   });
+  const [localLoans, setLocalLoans] = useState<Loan[]>([]);
+  const [localClients, setLocalClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const activeLoans = loans.filter(l => l.status === 'activo' || l.status === 'mora');
+  // Cargar préstamos y clientes desde Supabase
+  useEffect(() => {
+    loadLoans();
+    loadClients();
+  }, []);
+
+  const loadLoans = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('prestamos')
+        .select(`
+          *,
+          clientes!inner(*),
+          cuotas(*),
+          cobros(*)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      
+      // Mapear datos de Supabase al formato de Loan
+      const mappedLoans: Loan[] = (data || []).map(loan => ({
+        id: loan.id,
+        clientId: loan.cliente_id,
+        type: 'mensual',
+        modality: 'efectivo',
+        amount: loan.monto,
+        interestRate: loan.tasa_interes,
+        term: loan.plazo_meses,
+        installmentAmount: loan.monto_total / loan.plazo_meses,
+        totalAmount: loan.monto_total,
+        totalInterest: loan.monto_total - loan.monto,
+        startDate: loan.fecha_inicio,
+        status: loan.estado.toLowerCase(),
+        assignedCollector: loan.cobrador_id,
+        articleId: undefined,
+        guarantees: undefined,
+        observations: undefined,
+        purpose: undefined,
+        preferredDay: loan.dia_cobro,
+        payments: (loan.cobros || []).map((p: any) => ({
+          id: p.id,
+          loanId: p.prestamo_id,
+          clientId: '',
+          amount: p.monto,
+          method: p.metodo_pago,
+          date: p.fecha_cobro,
+          collectorId: p.creado_por,
+          receiptNumber: p.nota?.replace('Recibo: ', '') || '',
+          isLate: false,
+          synced: true,
+        })),
+        createdAt: loan.created_at,
+      }));
+
+      setLocalLoans(mappedLoans);
+    } catch (error: any) {
+      console.error('Error al cargar préstamos:', error);
+      addNotification('error', 'Error al cargar préstamos: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadClients = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('clientes')
+        .select('*')
+        .order('nombre', { ascending: true });
+
+      if (error) throw error;
+      
+      const mappedClients: Client[] = (data || []).map(client => ({
+        id: client.id,
+        fullName: client.nombre,
+        cedula: client.cedula,
+        address: client.direccion || '',
+        phone: client.telefono,
+        whatsapp: client.telefono,
+        email: client.email,
+        guarantor: undefined,
+        guarantorPhone: undefined,
+        lat: undefined,
+        lng: undefined,
+        occupation: undefined,
+        monthlyIncome: undefined,
+        references: undefined,
+        observations: undefined,
+        riskLevel: undefined,
+        createdAt: client.created_at,
+      }));
+
+      setLocalClients(mappedClients);
+    } catch (error: any) {
+      console.error('Error al cargar clientes:', error);
+      addNotification('error', 'Error al cargar clientes: ' + error.message);
+    }
+  };
+
+  const activeLoans = localLoans.filter(l => l.status === 'activo' || l.status === 'mora');
 
   // Función para abrir modal de edición
   const openEditModal = (loan: Loan) => {
-    const client = clients.find(c => c.id === loan.clientId);
+    const client = localClients.find(c => c.id === loan.clientId);
+    console.log('=== ABRIENDO MODAL DE EDICIÓN ===');
+    console.log('Préstamo:', loan);
+    console.log('Cliente:', client);
     setEditForm({
       amount: loan.amount.toString(),
       interestRate: loan.interestRate.toString(),
@@ -48,15 +155,9 @@ export default function ContractsPage() {
       const totalAmount = amount + totalInterest;
       const installmentAmount = totalAmount / term;
 
-      const updatedData = {
-        amount,
-        interestRate,
-        term,
-        clientId: editForm.clientId,
-        totalInterest,
-        totalAmount,
-        installmentAmount,
-      };
+      console.log('=== GUARDANDO CAMBIOS DEL CONTRATO ===');
+      console.log('Préstamo ID:', showEditModal.id);
+      console.log('Datos actualizados:', { amount, interestRate, term, totalAmount });
 
       // Actualizar en Supabase
       const { error } = await supabase
@@ -73,11 +174,11 @@ export default function ContractsPage() {
 
       if (error) throw error;
 
-      // Actualizar en el store local
-      updateLoan(showEditModal.id, updatedData);
-
       addNotification('success', 'Contrato actualizado exitosamente');
       setShowEditModal(null);
+      
+      // Recargar los datos desde Supabase
+      await loadLoans();
     } catch (error: any) {
       console.error('Error al actualizar contrato:', error);
       addNotification('error', `Error al actualizar: ${error.message}`);
@@ -86,9 +187,17 @@ export default function ContractsPage() {
 
   // Función para compartir contrato por WhatsApp
   const shareContractWhatsApp = (loanId: string) => {
-    const loan = loans.find(l => l.id === loanId);
-    const client = clients.find(c => c.id === loan?.clientId);
-    if (!loan || !client) return;
+    const loan = localLoans.find(l => l.id === loanId);
+    const client = localClients.find(c => c.id === loan?.clientId);
+    
+    console.log('=== COMPARTIENDO CONTRATO POR WHATSAPP ===');
+    console.log('Préstamo:', loan);
+    console.log('Cliente:', client);
+    
+    if (!loan || !client) {
+      addNotification('error', 'No se encontraron los datos del contrato');
+      return;
+    }
 
     const message = `*CONTRATO DE PRÉSTAMO - YaraCredit*%0A%0A` +
       `*Cliente:* ${client.fullName}%0A` +
@@ -109,13 +218,14 @@ export default function ContractsPage() {
     }
 
     const whatsappUrl = `https://wa.me/${phone.replace(/\D/g, '')}?text=${message}`;
+    console.log('Abriendo WhatsApp:', whatsappUrl);
     window.open(whatsappUrl, '_blank');
     addNotification('success', 'Abriendo WhatsApp para enviar contrato');
   };
 
   const generateContractText = (loanId: string) => {
-    const loan = loans.find(l => l.id === loanId);
-    const client = clients.find(c => c.id === loan?.clientId);
+    const loan = localLoans.find(l => l.id === loanId);
+    const client = localClients.find(c => c.id === loan?.clientId);
     if (!loan || !client) return '';
 
     return `
@@ -161,6 +271,17 @@ ${client.guarantor || 'N/A'}
     `.trim();
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Cargando contratos...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -176,52 +297,53 @@ ${client.guarantor || 'N/A'}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {activeLoans.map(loan => {
-          const client = clients.find(c => c.id === loan.clientId);
-          return (
-            <Card key={loan.id} className="p-5">
-              <div className="flex items-start justify-between mb-3">
-                <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
-                  <FileText size={20} className="text-purple-600" />
+      {activeLoans.length === 0 ? (
+        <Card className="p-8 text-center">
+          <FileText size={48} className="mx-auto text-gray-300 mb-3" />
+          <p className="text-gray-500">No hay contratos activos para mostrar</p>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {activeLoans.map(loan => {
+            const client = localClients.find(c => c.id === loan.clientId);
+            return (
+              <Card key={loan.id} className="p-5">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
+                    <FileText size={20} className="text-purple-600" />
+                  </div>
+                  <Badge variant={loan.status === 'activo' ? 'success' : 'danger'}>{loan.status}</Badge>
                 </div>
-                <Badge variant={loan.status === 'activo' ? 'success' : 'danger'}>{loan.status}</Badge>
-              </div>
-              <h4 className="font-bold text-gray-900">{client?.fullName}</h4>
-              <p className="text-sm text-gray-500">{formatCurrency(loan.amount)} • {loan.type}</p>
-              <p className="text-xs text-gray-400 mt-1">Inicio: {formatDate(loan.startDate)}</p>
-              <div className="flex gap-2 mt-4 pt-3 border-t">
-                <Button size="sm" variant="outline" className="flex-1" onClick={() => setShowPreview(loan.id)}>
-                  <Eye size={14} /> Ver
-                </Button>
-                <Button size="sm" variant="outline" className="flex-1" onClick={() => {
-                  if (loan && client) {
-                    exportContractPDF(loan, client);
-                  }
-                }}>
-                  <Download size={14} /> PDF
-                </Button>
-              </div>
-              <div className="flex gap-2 mt-2">
-                {profile?.role === 'admin' && (
-                  <Button size="sm" variant="outline" className="flex-1" onClick={() => openEditModal(loan)}>
-                    <Edit2 size={14} /> Editar
+                <h4 className="font-bold text-gray-900">{client?.fullName}</h4>
+                <p className="text-sm text-gray-500">{formatCurrency(loan.amount)} • {loan.type}</p>
+                <p className="text-xs text-gray-400 mt-1">Inicio: {formatDate(loan.startDate)}</p>
+                <div className="flex gap-2 mt-4 pt-3 border-t">
+                  <Button size="sm" variant="outline" className="flex-1" onClick={() => setShowPreview(loan.id)}>
+                    <Eye size={14} /> Ver
                   </Button>
-                )}
-                <Button size="sm" variant="outline" className="flex-1" onClick={() => shareContractWhatsApp(loan.id)}>
-                  <Send size={14} /> WhatsApp
-                </Button>
-              </div>
-            </Card>
-          );
-        })}
-        {activeLoans.length === 0 && (
-          <Card className="col-span-full p-8 text-center">
-            <FileText size={48} className="mx-auto text-gray-300 mb-3" />
-            <p className="text-gray-500">No hay préstamos activos para generar contratos</p>
-          </Card>
-        )}
-      </div>
+                  <Button size="sm" variant="outline" className="flex-1" onClick={() => {
+                    if (loan && client) {
+                      exportContractPDF(loan, client);
+                    }
+                  }}>
+                    <Download size={14} /> PDF
+                  </Button>
+                </div>
+                <div className="flex gap-2 mt-2">
+                  {profile?.role === 'admin' && (
+                    <Button size="sm" variant="outline" className="flex-1" onClick={() => openEditModal(loan)}>
+                      <Edit2 size={14} /> Editar
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" className="flex-1" onClick={() => shareContractWhatsApp(loan.id)}>
+                    <Send size={14} /> WhatsApp
+                  </Button>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
 
       {/* Preview Modal */}
       <Modal isOpen={!!showPreview} onClose={() => setShowPreview(null)} title="Vista Previa del Contrato" size="xl">
@@ -245,7 +367,7 @@ ${client.guarantor || 'N/A'}
       {/* Edit Contract Modal */}
       <Modal isOpen={!!showEditModal} onClose={() => setShowEditModal(null)} title="Editar Contrato" size="lg">
         {showEditModal && (() => {
-          const client = clients.find(c => c.id === showEditModal.clientId);
+          const client = localClients.find(c => c.id === showEditModal.clientId);
           return (
             <div className="space-y-4">
               <div className="bg-purple-50 p-4 rounded-xl">
@@ -276,7 +398,7 @@ ${client.guarantor || 'N/A'}
                   label="Cliente"
                   value={editForm.clientId}
                   onChange={e => setEditForm({...editForm, clientId: e.target.value})}
-                  options={clients.map(c => ({ value: c.id, label: `${c.fullName} - ${c.cedula}` }))}
+                  options={localClients.map(c => ({ value: c.id, label: `${c.fullName} - ${c.cedula}` }))}
                 />
               </div>
 

@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useStore } from '../store';
+import { supabase } from '../lib/supabaseClient';
 import { registerPayment } from '../services/supabaseService';
 import { Modal, Button, Input, Select, Card, Badge, formatCurrency, formatDate } from '../components/ui';
 import ReceiptComponent from '../components/Receipt';
 import { Receipt, MapPin, Phone, CheckCircle, Printer, Send, DollarSign, Clock, Download } from 'lucide-react';
 import { exportReceiptPDF } from '../utils/pdfGenerator';
-import type { PaymentMethod } from '../types';
+import type { PaymentMethod, Loan } from '../types';
 
 export default function CollectionsPage() {
   const { loans, clients, routes, currentUser, addPayment, addNotification, users } = useStore();
@@ -14,6 +15,7 @@ export default function CollectionsPage() {
   const [paymentForm, setPaymentForm] = useState({ amount: '', method: 'efectivo' as PaymentMethod });
   const [showReceipt, setShowReceipt] = useState<string | null>(null);
   const [thermalSize, setThermalSize] = useState<'50mm' | '80mm'>('50mm');
+  const [loading, setLoading] = useState(false);
 
   // Get loans for this collector
   const collectorId = currentUser?.id || '';
@@ -26,6 +28,64 @@ export default function CollectionsPage() {
 
   // If admin/gerente, show all
   const displayLoans = currentUser?.role === 'cobrador' ? myLoans : loans.filter(l => l.status === 'activo' || l.status === 'mora');
+
+  // Función para recargar préstamos desde Supabase
+  const loadLoans = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('prestamos')
+        .select(`
+          *,
+          clientes!inner(*),
+          cuotas(*),
+          cobros(*)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      
+      // Mapear datos de Supabase al formato de Loan
+      const mappedLoans: Loan[] = (data || []).map(loan => ({
+        id: loan.id,
+        clientId: loan.cliente_id,
+        type: 'mensual',
+        modality: 'efectivo',
+        amount: loan.monto,
+        interestRate: loan.tasa_interes,
+        term: loan.plazo_meses,
+        installmentAmount: loan.monto_total / loan.plazo_meses,
+        totalAmount: loan.monto_total,
+        totalInterest: loan.monto_total - loan.monto,
+        startDate: loan.fecha_inicio,
+        status: loan.estado.toLowerCase(),
+        assignedCollector: loan.cobrador_id,
+        articleId: undefined,
+        guarantees: undefined,
+        observations: undefined,
+        purpose: undefined,
+        preferredDay: loan.dia_cobro,
+        payments: (loan.cobros || []).map((p: any) => ({
+          id: p.id,
+          loanId: p.prestamo_id,
+          clientId: '',
+          amount: p.monto,
+          method: p.metodo_pago,
+          date: p.fecha_cobro,
+          collectorId: p.creado_por,
+          receiptNumber: p.nota?.replace('Recibo: ', '') || '',
+          isLate: false,
+          synced: true,
+        })),
+        createdAt: loan.created_at,
+      }));
+
+      // Actualizar el store local
+      useStore.setState({ loans: mappedLoans });
+    } catch (error: any) {
+      console.error('Error al cargar préstamos:', error);
+      addNotification('error', 'Error al cargar préstamos: ' + error.message);
+    }
+  };
 
   const handleOpenPayment = (loanId: string) => {
     const loan = loans.find(l => l.id === loanId);
@@ -46,7 +106,13 @@ export default function CollectionsPage() {
       return;
     }
 
+    setLoading(true);
     try {
+      console.log('=== REGISTRANDO PAGO ===');
+      console.log('Préstamo:', loan.id);
+      console.log('Monto:', amount);
+      console.log('Método:', paymentForm.method);
+
       // Registrar pago en Supabase
       const payment = await registerPayment({
         creditoId: loan.id,
@@ -58,15 +124,18 @@ export default function CollectionsPage() {
         isLate: loan.status === 'mora',
       });
 
+      console.log('Pago registrado:', payment);
       addNotification('success', `Pago de ${formatCurrency(amount)} registrado exitosamente`);
       setShowPaymentModal(false);
       setShowReceipt(payment.id);
       
-      // Recargar la página para actualizar los datos
-      window.location.reload();
+      // Recargar los datos desde Supabase
+      await loadLoans();
     } catch (error: any) {
       console.error('Error al registrar pago:', error);
       addNotification('error', `Error al registrar pago: ${error.message || 'Error desconocido'}`);
+    } finally {
+      setLoading(false);
     }
   };
 
