@@ -158,7 +158,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-purple-300/60 text-xs mt-6">
-          YaraCredit v1.0 — Offline-First PWA • Desarrollado por <span className="font-semibold text-purple-200/80">YIDA</span>
+          YaraCredit v1.0 — Online System • Desarrollado por <span className="font-semibold text-purple-200/80">YIDA</span>
         </p>
       </div>
     </div>
