@@ -6,9 +6,13 @@ CREATE TABLE IF NOT EXISTS public.pagos (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   prestamo_id UUID REFERENCES public.prestamos(id) ON DELETE CASCADE,
   monto DECIMAL(12,2) NOT NULL,
+  metodo_pago TEXT NOT NULL DEFAULT 'efectivo',
   fecha DATE NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE public.pagos
+ADD COLUMN IF NOT EXISTS metodo_pago TEXT NOT NULL DEFAULT 'efectivo';
 
 -- Habilitar RLS
 ALTER TABLE public.pagos ENABLE ROW LEVEL SECURITY;

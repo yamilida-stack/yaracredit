@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect } from 'react';
 import { useStore } from '../store';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabaseClient';
-import { registerPayment } from '../services/supabaseService';
 import { Modal, Button, Input, Select, Card, Table, Badge, formatCurrency, formatDate, EmptyState } from '../components/ui';
 import { Plus, Search, DollarSign, Eye, FileText, Trash2, Calendar, Clock, Edit2, Download } from 'lucide-react';
 import { exportLoansPDF } from '../utils/pdfGenerator';
@@ -349,9 +348,11 @@ export default function LoansPage() {
 
       if (error) throw error;
       await loadLoans();
+      return true;
     } catch (error: any) {
       console.error('Error al editar préstamo:', error);
-      throw error;
+      window.alert(error.message);
+      return false;
     }
   };
 
@@ -370,6 +371,7 @@ export default function LoansPage() {
       await loadLoans();
     } catch (error: any) {
       console.error('Error al eliminar préstamo:', error);
+      window.alert(error.message);
       addNotification('error', 'Error al eliminar préstamo: ' + error.message);
     }
   };
@@ -394,15 +396,37 @@ export default function LoansPage() {
 
     setPaymentLoading(true);
     try {
-      await registerPayment({
-        creditoId: paymentLoan.id,
-        clientId: paymentLoan.clientId,
-        amount,
-        method: paymentMethod,
-        date: new Date().toISOString().split('T')[0],
-        collectorId: profile?.id || '',
-        isLate: paymentLoan.status === 'mora',
-      });
+      const paymentDate = new Date().toISOString().split('T')[0];
+      const { data: currentLoan, error: loanError } = await supabase
+        .from('prestamos')
+        .select('monto_restante')
+        .eq('id', paymentLoan.id)
+        .single();
+
+      if (loanError) throw loanError;
+      if (!currentLoan) throw new Error('No se encontró el préstamo seleccionado');
+
+      const { error: paymentError } = await supabase
+        .from('pagos')
+        .insert([{
+          prestamo_id: paymentLoan.id,
+          monto: amount,
+          metodo_pago: paymentMethod,
+          fecha: paymentDate,
+        }]);
+
+      if (paymentError) throw paymentError;
+
+      const nuevoMontoRestante = Math.max(0, Number(currentLoan.monto_restante) - amount);
+      const { error: updateError } = await supabase
+        .from('prestamos')
+        .update({
+          monto_restante: nuevoMontoRestante,
+          estado: nuevoMontoRestante <= 0 ? 'pagado' : 'activo',
+        })
+        .eq('id', paymentLoan.id);
+
+      if (updateError) throw updateError;
 
       setShowPaymentModal(false);
       setPaymentLoan(null);
@@ -410,6 +434,7 @@ export default function LoansPage() {
       await loadLoans();
     } catch (error: any) {
       console.error('Error al registrar pago:', error);
+      window.alert(error.message);
       addNotification('error', 'Error al registrar pago: ' + error.message);
     } finally {
       setPaymentLoading(false);
@@ -513,7 +538,8 @@ export default function LoansPage() {
           fecha_fin: fechaFinStr,
         };
         
-        await handleEditLoan(editing.id, updatePayload);
+        const updated = await handleEditLoan(editing.id, updatePayload);
+        if (!updated) return;
         addNotification('success', 'Préstamo actualizado exitosamente');
       } else {
         // Crear nuevo préstamo
@@ -605,6 +631,7 @@ export default function LoansPage() {
       setShowModal(false);
     } catch (error: any) {
       console.error('Error al guardar préstamo:', error);
+      window.alert(error.message);
       addNotification('error', 'Error: ' + error.message);
     }
   };
@@ -631,7 +658,7 @@ export default function LoansPage() {
         <Button variant="outline" onClick={() => exportLoansPDF(filtered, clients)}>
           <Download size={18} /> Exportar PDF
         </Button>
-        {currentUser?.role !== 'solo_lectura' && (
+        {profile?.role !== 'solo_lectura' && (
           <Button onClick={openCreate}><Plus size={18} /> Nuevo Préstamo</Button>
         )}
       </div>
@@ -750,7 +777,7 @@ export default function LoansPage() {
                           <DollarSign size={16} />
                         </button>
                       )}
-                      {currentUser?.role === 'admin' && (
+                      {profile?.role === 'admin' && (
                         <button
                           onClick={() => handleDeleteLoan(loan.id)}
                           className="p-2 hover:bg-red-50 rounded-lg text-red-600"

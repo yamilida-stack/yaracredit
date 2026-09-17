@@ -113,9 +113,11 @@ export default function ClientsPage() {
 
       if (error) throw error;
       await loadClients();
+      return true;
     } catch (error: any) {
       console.error('Error al editar cliente:', error);
-      throw error;
+      window.alert(error.message);
+      return false;
     }
   };
 
@@ -134,6 +136,7 @@ export default function ClientsPage() {
       await loadClients();
     } catch (error: any) {
       console.error('Error al eliminar cliente:', error);
+      window.alert(error.message);
       addNotification('error', 'Error al eliminar cliente: ' + error.message);
     }
   };
@@ -172,7 +175,8 @@ export default function ClientsPage() {
 
     try {
       if (editing) {
-        await handleEditClient(editing.id, clientData);
+        const updated = await handleEditClient(editing.id, clientData);
+        if (!updated) return;
         addNotification('success', 'Cliente actualizado exitosamente');
       } else {
         // Crear nuevo cliente
@@ -191,6 +195,7 @@ export default function ClientsPage() {
       setShowModal(false);
     } catch (error: any) {
       console.error('Error al guardar cliente:', error);
+      window.alert(error.message);
       addNotification('error', 'Error: ' + error.message);
     }
   };
@@ -288,7 +293,7 @@ export default function ClientsPage() {
                           <button onClick={() => openEdit(client)} className="p-2 hover:bg-yellow-50 rounded-lg text-yellow-600" title="Editar">
                             <Edit2 size={16} />
                           </button>
-                          {currentUser?.role === 'admin' && (
+                          {profile?.role === 'admin' && (
                             <button onClick={() => handleDeleteClient(client.id)} className="p-2 hover:bg-red-50 rounded-lg text-red-600" title="Eliminar">
                               <Trash2 size={16} />
                             </button>
