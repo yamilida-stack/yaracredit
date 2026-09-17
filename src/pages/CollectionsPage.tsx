@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useStore } from '../store';
+import { registerPayment } from '../services/supabaseService';
 import { Modal, Button, Input, Select, Card, Badge, formatCurrency, formatDate } from '../components/ui';
 import ReceiptComponent from '../components/Receipt';
 import { Receipt, MapPin, Phone, CheckCircle, Printer, Send, DollarSign, Clock } from 'lucide-react';
@@ -34,7 +35,7 @@ export default function CollectionsPage() {
     }
   };
 
-  const handlePayment = (e: React.FormEvent) => {
+  const handlePayment = async (e: React.FormEvent) => {
     e.preventDefault();
     const loan = loans.find(l => l.id === selectedLoan);
     if (!loan) return;
@@ -43,18 +44,29 @@ export default function CollectionsPage() {
       addNotification('error', 'Ingresa un monto válido');
       return;
     }
-    const payment = addPayment({
-      loanId: loan.id,
-      clientId: loan.clientId,
-      amount,
-      method: paymentForm.method,
-      date: new Date().toISOString().split('T')[0],
-      collectorId: currentUser?.id || '',
-      isLate: loan.status === 'mora',
-    });
-    addNotification('success', `Pago de ${formatCurrency(amount)} registrado`);
-    setShowPaymentModal(false);
-    setShowReceipt(payment.id);
+
+    try {
+      // Registrar pago en Supabase
+      const payment = await registerPayment({
+        creditoId: loan.id,
+        clientId: loan.clientId,
+        amount,
+        method: paymentForm.method,
+        date: new Date().toISOString().split('T')[0],
+        collectorId: currentUser?.id || '',
+        isLate: loan.status === 'mora',
+      });
+
+      addNotification('success', `Pago de ${formatCurrency(amount)} registrado exitosamente`);
+      setShowPaymentModal(false);
+      setShowReceipt(payment.id);
+      
+      // Recargar la página para actualizar los datos
+      window.location.reload();
+    } catch (error: any) {
+      console.error('Error al registrar pago:', error);
+      addNotification('error', `Error al registrar pago: ${error.message || 'Error desconocido'}`);
+    }
   };
 
   const getReceiptData = (paymentId: string) => {

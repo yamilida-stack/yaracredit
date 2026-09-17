@@ -143,7 +143,7 @@ export default function LoansPage() {
     };
   }, [form.amount, form.interestRate, form.termMonths, form.frequency, form.startDate, form.preferredDay]);
 
-  // Función para calcular fecha de cobro
+  // Función para calcular fecha de cobro - CORREGIDA
   function calculateDueDate(startDate: Date, installmentNumber: number, frequency: PaymentFrequency, preferredDay: PreferredDay): Date {
     const dayMap: Record<PreferredDay, number> = {
       'Lunes': 1, 'Martes': 2, 'Miércoles': 3,
@@ -166,11 +166,19 @@ export default function LoansPage() {
     
     // Calcular según frecuencia desde la primera fecha de cobro
     if (frequency === 'Semanal') {
+      // Sumar semanas completas (7 días) - siempre caerá en el mismo día
       dueDate.setDate(dueDate.getDate() + (installmentNumber - 1) * 7);
     } else if (frequency === 'Quincenal') {
-      dueDate.setDate(dueDate.getDate() + (installmentNumber - 1) * 15);
+      // Sumar 2 semanas (14 días) para mantener el mismo día de la semana
+      dueDate.setDate(dueDate.getDate() + (installmentNumber - 1) * 14);
     } else if (frequency === 'Mensual') {
+      // Sumar meses y luego ajustar al día de la semana correcto
       dueDate.setMonth(dueDate.getMonth() + (installmentNumber - 1));
+      
+      // Ajustar al día de la semana preferido
+      const currentDayAfterMonth = dueDate.getDay();
+      const daysToAdjust = (targetDay - currentDayAfterMonth + 7) % 7;
+      dueDate.setDate(dueDate.getDate() + daysToAdjust);
     }
     
     return dueDate;
