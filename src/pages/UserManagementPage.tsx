@@ -103,13 +103,11 @@ export default function UserManagementPage() {
 
         if (error) throw error;
 
-        // Si se proporcionó nueva contraseña, actualizarla
+        // NOTA: Para cambiar la contraseña, el usuario debe usar la función de "Olvidé mi contraseña"
+        // No se puede cambiar la contraseña de otro usuario desde el frontend sin SERVICE_ROLE_KEY
+        
         if (form.password) {
-          const { error: authError } = await supabase.auth.admin.updateUserById(
-            editingUser.id,
-            { password: form.password }
-          );
-          if (authError) throw authError;
+          addNotification('warning', 'Para cambiar la contraseña, el usuario debe usar la opción "Olvidé mi contraseña"');
         }
 
         addNotification('success', 'Usuario actualizado exitosamente');
