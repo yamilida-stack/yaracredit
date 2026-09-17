@@ -5,7 +5,7 @@ import { Plus, Search, MapPin, Phone, User, Edit2, Trash2, Eye, Users } from 'lu
 import type { Client } from '../types';
 
 export default function ClientsPage() {
-  const { clients, loans, addClient, updateClient, deleteClient, currentUser, addNotification } = useStore();
+  const { clients, loans, routes, addClient, updateClient, deleteClient, currentUser, addNotification } = useStore();
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [showDetail, setShowDetail] = useState<Client | null>(null);
@@ -14,11 +14,24 @@ export default function ClientsPage() {
     fullName: '', cedula: '', address: '', phone: '', whatsapp: '', email: '', guarantor: '', guarantorPhone: '', lat: '', lng: '', occupation: '', monthlyIncome: '', references: '', observations: ''
   });
 
-  const filtered = clients.filter(c =>
-    c.fullName.toLowerCase().includes(search.toLowerCase()) ||
-    c.cedula.includes(search) ||
-    c.phone.includes(search)
-  );
+  // Filtrar clientes según el rol del usuario
+  const filtered = clients.filter(c => {
+    // Filtro de búsqueda
+    const matchSearch = c.fullName.toLowerCase().includes(search.toLowerCase()) ||
+      c.cedula.includes(search) ||
+      c.phone.includes(search);
+    
+    // Filtro por rol: si es cobrador, solo mostrar clientes de sus rutas
+    let matchRole = true;
+    if (currentUser?.role === 'cobrador') {
+      const collectorId = currentUser.id;
+      const myRoutes = routes.filter(r => r.collectorId === collectorId);
+      const myClientIds = myRoutes.flatMap(r => r.clientIds);
+      matchRole = myClientIds.includes(c.id);
+    }
+    
+    return matchSearch && matchRole;
+  });
 
   const openCreate = () => {
     setForm({ fullName: '', cedula: '', address: '', phone: '', whatsapp: '', email: '', guarantor: '', guarantorPhone: '', lat: '', lng: '', occupation: '', monthlyIncome: '', references: '', observations: '' });
