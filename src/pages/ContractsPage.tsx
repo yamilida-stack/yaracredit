@@ -167,6 +167,7 @@ export default function ContractsPage() {
           tasa_interes: interestRate,
           plazo_meses: term,
           monto_total: totalAmount,
+          monto_restante: totalAmount,
           saldo_pendiente: totalAmount,
           cliente_id: editForm.clientId,
         })

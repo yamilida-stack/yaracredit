@@ -422,6 +422,7 @@ export default function LoansPage() {
         .from('prestamos')
         .update({
           monto_restante: nuevoMontoRestante,
+          saldo_pendiente: nuevoMontoRestante,
           estado: nuevoMontoRestante <= 0 ? 'pagado' : 'activo',
         })
         .eq('id', paymentLoan.id);
@@ -532,6 +533,7 @@ export default function LoansPage() {
           plazo_meses: term,
           monto_total: totalAmount,
           monto_restante: totalAmount,
+          saldo_pendiente: totalAmount,
           estado: 'activo',
           dia_cobro: form.preferredDay.toLowerCase(),
           fecha_inicio: form.startDate,
@@ -551,6 +553,7 @@ export default function LoansPage() {
           plazo_meses: term,
           monto_total: totalAmount,
           monto_restante: totalAmount,
+          saldo_pendiente: totalAmount,
           estado: 'activo',
           dia_cobro: form.preferredDay.toLowerCase(),
           fecha_inicio: form.startDate,

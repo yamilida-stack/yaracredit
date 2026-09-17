@@ -342,7 +342,7 @@ export async function registerPayment(payment: {
     console.log('Actualizando monto restante del préstamo:', payment.creditoId);
     const { data: prestamoActual, error: prestamoError } = await supabase
       .from('prestamos')
-      .select('monto_restante')
+      .select('monto_restante, saldo_pendiente')
       .eq('id', payment.creditoId)
       .single();
 
@@ -358,6 +358,7 @@ export async function registerPayment(payment: {
         .from('prestamos')
         .update({
           monto_restante: nuevoMontoRestante,
+          saldo_pendiente: nuevoMontoRestante,
           estado: nuevoEstado,
         })
         .eq('id', payment.creditoId);
