@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import { ToastContainer } from './components/ui';
+import ConnectionAlert from './components/ConnectionAlert';
 import { useStore } from './store';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
@@ -49,6 +50,7 @@ function AppContent() {
   if (!user) {
     return (
       <>
+        <ConnectionAlert />
         <LoginPage />
         <ToastContainer notifications={notifications} onRemove={removeNotification} />
       </>
@@ -58,6 +60,7 @@ function AppContent() {
   // Si hay usuario, mostrar la aplicación
   return (
     <div className={settings.darkMode ? 'dark' : ''}>
+      <ConnectionAlert />
       <Layout currentPage={currentPage} onNavigate={setCurrentPage}>
         {renderPage(currentPage)}
       </Layout>

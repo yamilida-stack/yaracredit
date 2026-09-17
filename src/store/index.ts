@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
 import type {
   User, Client, Loan, Payment, Article, CashMovement, CashRegister,
@@ -260,8 +259,7 @@ interface AppState {
 }
 
 export const useStore = create<AppState>()(
-  persist(
-    (set, get) => ({
+  (set, get) => ({
       // Auth
       currentUser: null,
       users: seedUsers,
@@ -500,9 +498,5 @@ export const useStore = create<AppState>()(
         return get().loans.flatMap(l => l.payments.filter(p => p.date === date));
       },
       getCommissionRate: () => 0.05,
-    }),
-    {
-      name: 'yaracredit-storage',
-    }
-  )
+    })
 );
