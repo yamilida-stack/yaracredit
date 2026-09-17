@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useStore } from '../store';
 import { Modal, Button, Input, Select, Card, Table, Badge, formatCurrency, formatDate, EmptyState } from '../components/ui';
-import { Plus, Search, DollarSign, Eye, FileText, Trash2, Calendar, Clock } from 'lucide-react';
+import { Plus, Search, DollarSign, Eye, FileText, Trash2, Calendar, Clock, Edit2 } from 'lucide-react';
 import type { Loan, LoanType, LoanModality } from '../types';
 
 type PaymentFrequency = 'Semanal' | 'Quincenal' | 'Mensual';
@@ -14,11 +14,12 @@ interface AmortizationSchedule {
 }
 
 export default function LoansPage() {
-  const { loans, clients, articles, addLoan, deleteLoan, addNotification, currentUser } = useStore();
+  const { loans, clients, articles, addLoan, updateLoan, deleteLoan, addNotification, currentUser } = useStore();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showModal, setShowModal] = useState(false);
   const [showDetail, setShowDetail] = useState<Loan | null>(null);
+  const [editing, setEditing] = useState<Loan | null>(null);
   
   const [form, setForm] = useState({
     clientId: '',
@@ -191,6 +192,27 @@ export default function LoansPage() {
       observations: '',
       purpose: ''
     });
+    setEditing(null);
+    setShowModal(true);
+  };
+
+  const openEdit = (loan: Loan) => {
+    setForm({
+      clientId: loan.clientId,
+      modality: loan.modality,
+      startDate: loan.startDate,
+      preferredDay: (loan.preferredDay as PreferredDay) || 'Lunes',
+      amount: loan.amount.toString(),
+      termMonths: loan.term.toString(),
+      interestRate: loan.interestRate.toString(),
+      frequency: (loan.type.charAt(0).toUpperCase() + loan.type.slice(1)) as PaymentFrequency,
+      assignedCollector: loan.assignedCollector || '',
+      articleId: loan.articleId || '',
+      guarantees: loan.guarantees?.[0] || '',
+      observations: loan.observations || '',
+      purpose: loan.purpose || ''
+    });
+    setEditing(loan);
     setShowModal(true);
   };
 
@@ -201,24 +223,45 @@ export default function LoansPage() {
       return;
     }
     
-    addLoan({
-      clientId: form.clientId,
-      type: form.frequency.toLowerCase() as LoanType,
-      modality: form.modality,
-      amount: Number(form.amount),
-      interestRate: Number(form.interestRate),
-      term: Number(form.termMonths),
-      startDate: form.startDate,
-      status: 'activo',
-      assignedCollector: form.assignedCollector || undefined,
-      articleId: form.modality === 'articulo' ? form.articleId || undefined : undefined,
-      guarantees: form.guarantees ? [form.guarantees] : undefined,
-      observations: form.observations || undefined,
-      purpose: form.purpose || undefined,
-      preferredDay: form.preferredDay,
-    });
+    if (editing) {
+      // Editar préstamo existente
+      updateLoan(editing.id, {
+        clientId: form.clientId,
+        type: form.frequency.toLowerCase() as LoanType,
+        modality: form.modality,
+        amount: Number(form.amount),
+        interestRate: Number(form.interestRate),
+        term: Number(form.termMonths),
+        startDate: form.startDate,
+        assignedCollector: form.assignedCollector || undefined,
+        articleId: form.modality === 'articulo' ? form.articleId || undefined : undefined,
+        guarantees: form.guarantees ? [form.guarantees] : undefined,
+        observations: form.observations || undefined,
+        purpose: form.purpose || undefined,
+        preferredDay: form.preferredDay,
+      });
+      addNotification('success', 'Préstamo actualizado exitosamente');
+    } else {
+      // Crear nuevo préstamo
+      addLoan({
+        clientId: form.clientId,
+        type: form.frequency.toLowerCase() as LoanType,
+        modality: form.modality,
+        amount: Number(form.amount),
+        interestRate: Number(form.interestRate),
+        term: Number(form.termMonths),
+        startDate: form.startDate,
+        status: 'activo',
+        assignedCollector: form.assignedCollector || undefined,
+        articleId: form.modality === 'articulo' ? form.articleId || undefined : undefined,
+        guarantees: form.guarantees ? [form.guarantees] : undefined,
+        observations: form.observations || undefined,
+        purpose: form.purpose || undefined,
+        preferredDay: form.preferredDay,
+      });
+      addNotification('success', 'Préstamo creado exitosamente');
+    }
     
-    addNotification('success', 'Préstamo creado exitosamente');
     setShowModal(false);
   };
 
@@ -342,6 +385,15 @@ export default function LoansPage() {
                       >
                         <Eye size={16} />
                       </button>
+                      {currentUser?.role !== 'solo_lectura' && (
+                        <button 
+                          onClick={() => openEdit(loan)} 
+                          className="p-2 hover:bg-yellow-50 rounded-lg text-yellow-600" 
+                          title="Editar préstamo"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                      )}
                       {loan.status === 'activo' && remaining > 0 && (
                         <button 
                           onClick={() => {
@@ -379,8 +431,8 @@ export default function LoansPage() {
         )}
       </Card>
 
-      {/* Create Modal */}
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Nuevo Préstamo" size="xl">
+      {/* Create/Edit Modal */}
+      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editing ? 'Editar Préstamo' : 'Nuevo Préstamo'} size="xl">
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Cliente */}
@@ -608,7 +660,9 @@ export default function LoansPage() {
 
           <div className="flex justify-end gap-3 pt-4 border-t">
             <Button variant="secondary" type="button" onClick={() => setShowModal(false)}>Cancelar</Button>
-            <Button type="submit"><FileText size={16} /> Crear Préstamo</Button>
+            <Button type="submit">
+              <FileText size={16} /> {editing ? 'Actualizar Préstamo' : 'Crear Préstamo'}
+            </Button>
           </div>
         </form>
       </Modal>
