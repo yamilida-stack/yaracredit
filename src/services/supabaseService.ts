@@ -300,50 +300,81 @@ export async function registerPayment(payment: {
   isLate: boolean;
   date: string;
 }): Promise<Payment> {
-  // 1. Generar número de recibo
-  const { data: reciboData } = await supabase.rpc('generar_numero_recibo');
-  const numeroRecibo = reciboData || `R-${String(Date.now()).slice(-4)}`;
+  console.log('=== REGISTRANDO PAGO EN SUPABASE ===');
+  console.log('Datos del pago:', payment);
 
-  // 2. Insertar cobro
-  const { data, error } = await supabase
-    .from('cobros')
-    .insert({
-      prestamo_id: payment.creditoId,
-      monto: payment.amount,
-      fecha_cobro: payment.date,
-      metodo_pago: payment.method,
-      nota: `Recibo: ${numeroRecibo}`,
-      creado_por: payment.collectorId,
-    })
-    .select()
-    .single();
-  
-  if (error) throw error;
-
-  // 3. Actualizar cuota si existe
-  if (payment.cuotaId) {
-    await supabase
-      .from('cuotas')
-      .update({
-        estado: 'pagada',
-        fecha_pago: payment.date,
+  try {
+    // 1. Generar número de recibo simple
+    const numeroRecibo = `R-${String(Date.now()).slice(-6)}`;
+    console.log('Número de recibo generado:', numeroRecibo);
+    
+    // 2. Insertar cobro directamente en la tabla cobros
+    const { data, error } = await supabase
+      .from('cobros')
+      .insert({
+        prestamo_id: payment.creditoId,
+        monto: payment.amount,
+        fecha_cobro: payment.date,
+        metodo_pago: payment.method,
+        nota: `Recibo: ${numeroRecibo}`,
+        creado_por: payment.collectorId,
       })
-      .eq('id', payment.cuotaId);
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('Error al insertar cobro:', error);
+      throw error;
+    }
+
+    console.log('Cobro insertado exitosamente:', data);
+
+    // 3. Actualizar cuota si existe
+    if (payment.cuotaId) {
+      console.log('Actualizando cuota:', payment.cuotaId);
+      const { error: cuotaError } = await supabase
+        .from('cuotas')
+        .update({
+          estado: 'pagada',
+          fecha_pago: payment.date,
+        })
+        .eq('id', payment.cuotaId);
+      
+      if (cuotaError) {
+        console.error('Error al actualizar cuota:', cuotaError);
+      }
+    }
+
+    // 4. Actualizar saldo pendiente del préstamo
+    console.log('Actualizando saldo del préstamo:', payment.creditoId);
+    const { data: prestamoActual, error: prestamoError } = await supabase
+      .from('prestamos')
+      .select('saldo_pendiente')
+      .eq('id', payment.creditoId)
+      .single();
+    
+    if (!prestamoError && prestamoActual) {
+      const nuevoSaldo = Math.max(0, prestamoActual.saldo_pendiente - payment.amount);
+      const nuevoEstado = nuevoSaldo === 0 ? 'pagado' : 'activo';
+      
+      await supabase
+        .from('prestamos')
+        .update({
+          saldo_pendiente: nuevoSaldo,
+          estado: nuevoEstado,
+        })
+        .eq('id', payment.creditoId);
+      
+      console.log('Saldo actualizado:', nuevoSaldo, 'Estado:', nuevoEstado);
+    }
+
+    console.log('Pago registrado exitosamente');
+    return mapPagoFromDB(data);
+  } catch (error: any) {
+    console.error('Error completo al registrar pago:', error);
+    throw error;
   }
-
-  // 4. Registrar movimiento de caja (ingreso)
-  await supabase.from('movimientos_caja').insert({
-    tipo: 'ingreso',
-    monto: payment.amount,
-    descripcion: `Pago cuota - Recibo ${numeroRecibo}`,
-    usuario_id: payment.collectorId,
-    pago_id: data.id,
-    fecha: payment.date,
-  });
-
-  return mapPagoFromDB(data);
 }
-
 function mapPagoFromDB(db: any): Payment {
   return {
     id: db.id,
