@@ -217,15 +217,40 @@ export const useStore = create<AppState>()(
         set(state => ({ loans: [...state.loans, newLoan] }));
         return newLoan;
       },
-      updateLoan: (id, data) => set(state => ({
-        loans: state.loans.map(l => l.id === id ? { ...l, ...data } : l)
-      })),
+      updateLoan: (id, data) => set(state => { 
+        const target = state.loans.find(l => l.id === id);
+        if (!target) return state;
+
+        const nextLoan: Loan = { ...target, ...data };
+        const amount = Number(data.amount ?? target.amount);
+        const interestRate = Number(data.interestRate ?? target.interestRate);
+        const term = Number(data.term ?? target.term);
+        const type = (data.type ?? target.type) as LoanType;
+
+        if (data.amount !== undefined || data.interestRate !== undefined || data.term !== undefined || data.type !== undefined) {
+          nextLoan.installmentAmount = calculateInstallment(amount, interestRate, term, type);
+          nextLoan.totalInterest = calculateTotalInterest(amount, interestRate, term, type);
+          nextLoan.totalAmount = calculateTotalAmount(amount, interestRate, term, type);
+        }
+
+        if (data.status !== undefined) {
+          nextLoan.status = data.status;
+        }
+
+        return {
+          loans: state.loans.map(l => l.id === id ? nextLoan : l),
+        };
+      }),
       deleteLoan: (id) => set(state => ({
         loans: state.loans.filter(l => l.id !== id)
       })),
 
       // Payments
       addPayment: (paymentData) => {
+        if (!Number.isFinite(paymentData.amount) || paymentData.amount <= 0) {
+          throw new Error('El monto del pago debe ser mayor que cero');
+        }
+
         const allPayments = get().loans.flatMap(l => l.payments);
         const receiptNumber = `R-${String(allPayments.length + 1).padStart(4, '0')}`;
         const payment: Payment = {
@@ -236,13 +261,13 @@ export const useStore = create<AppState>()(
         };
         set(state => {
           const updatedLoans = state.loans.map(l => {
-            if (l.id === paymentData.loanId) {
-              const updatedPayments = [...l.payments, payment];
-              const totalPaid = updatedPayments.reduce((sum, p) => sum + p.amount, 0);
-              const status: LoanStatus = totalPaid >= l.totalAmount ? 'cancelado' : l.status;
-              return { ...l, payments: updatedPayments, status };
-            }
-            return l;
+            if (l.id !== paymentData.loanId) return l;
+
+            const updatedPayments = [...l.payments, payment];
+            const totalPaid = updatedPayments.reduce((sum, p) => sum + p.amount, 0);
+            const status: LoanStatus = totalPaid >= l.totalAmount ? 'cancelado' : l.status;
+
+            return { ...l, payments: updatedPayments, status };
           });
           return { loans: updatedLoans };
         });

@@ -361,6 +361,20 @@ export default function LoansPage() {
     if (!window.confirm('¿Estás seguro de eliminar este préstamo? Esta acción no se puede deshacer.')) return;
 
     try {
+      const { error: pagosError } = await supabase
+        .from('pagos')
+        .delete()
+        .eq('prestamo_id', id);
+
+      if (pagosError) throw pagosError;
+
+      const { error: cuotasError } = await supabase
+        .from('cuotas')
+        .delete()
+        .eq('prestamo_id', id);
+
+      if (cuotasError) throw cuotasError;
+
       const { error } = await supabase
         .from('prestamos')
         .delete()

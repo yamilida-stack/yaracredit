@@ -357,7 +357,7 @@ export async function registerPayment(payment: {
     console.log('Actualizando monto restante del préstamo:', payment.creditoId);
     const { data: prestamoActual, error: prestamoError } = await supabase
       .from('prestamos')
-      .select('monto_restante, saldo_pendiente')
+      .select('monto_restante, saldo_pendiente, estado')
       .eq('id', payment.creditoId)
       .single();
 
@@ -368,7 +368,8 @@ export async function registerPayment(payment: {
 
     const saldoActual = Number(prestamoActual.monto_restante ?? prestamoActual.saldo_pendiente ?? 0);
     const nuevoMontoRestante = Math.max(0, saldoActual - payment.amount);
-    const nuevoEstado = nuevoMontoRestante <= 0 ? 'pagado' : 'activo';
+    const estadoActual = String(prestamoActual.estado ?? 'activo').toLowerCase();
+    const nuevoEstado = nuevoMontoRestante <= 0 ? 'cancelado' : estadoActual === 'mora' ? 'mora' : 'activo';
 
     const { error: updateError } = await supabase
         .from('prestamos')
